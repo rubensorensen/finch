@@ -1,11 +1,11 @@
 #! /usr/bin/sh
 
 CC=gcc
-CFLAGS="-Wall -Wextra -std=c11" 
+CFLAGS="-Wall -Wextra -std=c11 -ggdb" 
 
 INCLUDE_PATH="include/"
 SRC_PATH="src/"
-LIBS="$(pkg-config --cflags --libs x11)"
+LIBS="$(pkg-config --cflags --libs x11) -lm"
 
 BUILD_PATH="build/"
 BIN_PATH=$BUILD_PATH"/bin/"
