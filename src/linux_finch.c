@@ -172,6 +172,13 @@ int main(void)
         game_update(&game_state, curr_time - prev_time);
         x11_render(&x11_state, &game_state);
 
+        // Update fps in window title approx. every second
+        if ((u32)(clock_now() * 1000.0f) % 1000 < 10) {
+            char buff[100];
+            sprintf(buff, "Finch - %dfps", (u32)(1.0f / (curr_time - prev_time)));
+            XStoreName(x11_state.display, x11_state.window, buff);
+        }
+
         prev_time = curr_time;
     }
 
