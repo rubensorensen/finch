@@ -2,6 +2,7 @@
 #define FINCH_CORE_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 typedef uint8_t  u8;
 typedef uint16_t u16;
@@ -16,14 +17,9 @@ typedef int64_t s64;
 typedef float  f32;
 typedef double f64;
 
-typedef struct GameState {
-    u32  width_px;
-    u32  height_px;
-    int  running; 
-    u32* pixelbuffer;
-} GameState;
+typedef bool b32;
 
-typedef union Color {
+typedef union _Color {
     u32 packed;
     struct {
         u8 r, g, b, a;
