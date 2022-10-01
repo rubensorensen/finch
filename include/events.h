@@ -88,7 +88,8 @@ typedef struct _FcEvent {
     FcButton button;
     FcKey key;
     u32 mouse_x, mouse_y;
-    s32 scroll_wheel_direction;
+    s8 scroll_wheel_vertical_direction;
+    s8 scroll_wheel_horizontal_direction;
 } FcEvent;
 
 #endif // FINCH_EVENTS_H

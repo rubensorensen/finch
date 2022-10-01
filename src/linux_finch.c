@@ -246,7 +246,7 @@ static void x11_handle_events(X11State* x11_state, GameState* game_state)
                     finch_event.type = FC_EVENT_TYPE_BUTTON_PRESSED;
                 }
                 
-                else if (button == 4 || button == 5) {
+                else if (button >= 4 && button <= 7) {
                     finch_event.type = FC_EVENT_TYPE_WHEEL_SCROLLED;
                 }
                 
@@ -268,12 +268,23 @@ static void x11_handle_events(X11State* x11_state, GameState* game_state)
                     } break;
                     case 4: {
                         // Mouse scroll up
-                        finch_event.scroll_wheel_direction = 1;
+                        finch_event.scroll_wheel_vertical_direction = 1;
                     } break;
                     case 5: {
                         // Mouse scroll down
-                        finch_event.scroll_wheel_direction = -1;
+                        finch_event.scroll_wheel_vertical_direction = -1;
                     } break;
+                    case 6: {
+                        // Mouse scroll left
+                        finch_event.scroll_wheel_horizontal_direction = -1;
+                    } break;
+                    case 7: {
+                        // Mouse scroll right
+                        finch_event.scroll_wheel_horizontal_direction = 1;
+                    } break;
+                    default: {
+                        printf("Unhandled button: %u\n", button);
+                    }
                 }
             } break;
             case ButtonRelease: {
@@ -302,9 +313,10 @@ static void x11_handle_events(X11State* x11_state, GameState* game_state)
                 }
             } break;
             case MotionNotify: {
+                // TODO: MotionNotify seems to be inacurrate. Look into this!
                 finch_event.type = FC_EVENT_TYPE_MOUSE_MOVED;
-                finch_event.mouse_x = e.xbutton.x;
-                finch_event.mouse_y = e.xbutton.y;
+                finch_event.mouse_x = e.xmotion.x;
+                finch_event.mouse_y = e.xmotion.y;
             } break;
             case ClientMessage: {
                 if ((Atom)e.xclient.data.l[0] == x11_state->wm_delete_window) {

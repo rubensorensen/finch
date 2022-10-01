@@ -1,7 +1,7 @@
 #! /usr/bin/sh
 
 CC=gcc
-CFLAGS="-Wall -Wextra -std=c11 -ggdb" 
+CFLAGS="-Wall -Wextra -std=c11 -O2"
 
 INCLUDE_PATH="include/"
 SRC_PATH="src/"
