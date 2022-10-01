@@ -152,6 +152,7 @@ static f32 clock_now()
     return (f32)(now.tv_sec + (now.tv_nsec / 1000) * 0.000001);
 }
 
+// Implemented in game code
 extern void game_update(GameState*, f32);
 
 int main(void)
@@ -164,24 +165,31 @@ int main(void)
 
     f32 prev_time = clock_now();
     
+    char window_title[100];
+    f32 time_since_window_title_updated = 0.0f;
     game_state.running = 1;
     while (game_state.running) {
         
         f32 curr_time = clock_now();
+	f32 delta_time = curr_time - prev_time;
         x11_handle_events(&x11_state, &game_state);
-        game_update(&game_state, curr_time - prev_time);
+        game_update(&game_state, delta_time);
         x11_render(&x11_state, &game_state);
 
         // Update fps in window title approx. every second
-        if ((u32)(clock_now() * 1000.0f) % 1000 < 10) {
-            char buff[100];
-            sprintf(buff, "Finch - %dfps", (u32)(1.0f / (curr_time - prev_time)));
-            XStoreName(x11_state.display, x11_state.window, buff);
-        }
+	time_since_window_title_updated += delta_time;
+	if (time_since_window_title_updated > 1.0f) {
+            sprintf(window_title, "Finch - %dfps", (u32)(1.0f / delta_time));
+            XStoreName(x11_state.display, x11_state.window, window_title);
+	    time_since_window_title_updated = 0.0f;
+	}
 
         prev_time = curr_time;
     }
 
     x11_deinit(&x11_state);
+    if (game_state.pixelbuffer) {
+        free(game_state.pixelbuffer);
+    }
     return 0;
 }
