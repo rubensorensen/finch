@@ -5,7 +5,7 @@ CFLAGS="-Wall -Wextra -std=c11 -O2"
 
 INCLUDE_PATH="include/finch/"
 SRC_PATH="src/finch"
-LIBS="$(pkg-config --cflags --libs x11) -lm -Lbuild/sandbox/bin -lsandbox"
+LIBS="$(pkg-config --cflags --libs x11) -lm -ldl"
 
 BUILD_PATH="build/finch"
 BIN_PATH=$BUILD_PATH"/bin/"

@@ -1,4 +1,3 @@
-#include "finch/core.h"
 #include "finch/game.h"
 
 #include <stdio.h>
@@ -24,7 +23,12 @@ static u32 mouse_x, mouse_y;
 static u32 mouse_x_prev, mouse_y_prev;
 static b32 button_was_down[FC_BUTTON_COUNT];
 
-static void handle_events(GameState* game_state)
+void test(void)
+{
+    printf("This is a test!\n");
+}
+
+static void handle_game_events(GameState* game_state)
 {
     while (game_state->unhandled_events) {
         FcEvent e = game_state->events[--game_state->unhandled_events];
@@ -80,9 +84,19 @@ static void handle_events(GameState* game_state)
 
 }
 
+
+static u32 format_color(Color col)
+{
+    return (u32)(col.a << 24 |
+                 col.r << 16 |
+                 col.g << 8  |
+                 col.b << 0);
+}
+
+
 void game_update(GameState* game_state, f32 dt)
 {   
-    handle_events(game_state);
+    handle_game_events(game_state);
     
     velocity = key_is_down[FC_KEY_SPACE] ? 5.0f : 2.5f;
     if (key_is_down[FC_KEY_W]) {
@@ -104,8 +118,8 @@ void game_update(GameState* game_state, f32 dt)
             s32 dx = mouse_x - mouse_x_prev;
             s32 dy = mouse_y - mouse_y_prev;
 
-            horizontal_offset += dx;
-            vertical_offset += dy;
+            horizontal_offset -= dx;
+            vertical_offset -= dy;
         }
     }
     
@@ -118,12 +132,12 @@ void game_update(GameState* game_state, f32 dt)
             Color col = {0};
             col.r = (sinf(powf(u, v) * time_elapsed_seconds * 2.5f) + 1) / 2.0f * 255.0f;
             /* col.r = 0xFFu; */
-            col.g = (u8)i + horizontal_offset;
-            col.b = (u8)j + vertical_offset;
+            /* col.r = 0x00u; */
+            col.b = (u8)i + horizontal_offset;
+            col.g = (u8)j + vertical_offset;
             col.a = 0xFFu;            
 
-            u32 color = format_color(col);
-            game_state->pixelbuffer[i + j * game_state->width_px] = color;
+            game_state->pixelbuffer[i + j * game_state->width_px] = format_color(col);
         }
     }
     

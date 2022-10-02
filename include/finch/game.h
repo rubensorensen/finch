@@ -1,10 +1,16 @@
 #ifndef FINCH_GAME_H
 #define FINCH_GAME_H
 
-#include "core.h"
 #include "events.h"
 
 #define MAX_EVENTS 1000
+
+typedef union _Color {
+    u32 packed;
+    struct {
+        u8 r, g, b, a;
+    };
+} Color;
 
 typedef struct _GameState {
     u32  width_px;

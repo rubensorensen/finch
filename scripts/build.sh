@@ -38,7 +38,8 @@ make_runtree()
         FILE=$(find build/$DEPENDENCY/bin/ -name *$DEPENDENCY*)
         BASENAME=$(basename $FILE)
         echo -e "Copying:\t$FILE -> $RUN_TREE_PATH/$BASENAME"
-        cp $FILE $RUN_TREE_PATH/$BASENAME
+        cp $FILE $FILE.copy
+        mv $FILE.copy $RUN_TREE_PATH/$BASENAME
     done
 }
 

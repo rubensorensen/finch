@@ -19,13 +19,4 @@ typedef double f64;
 
 typedef bool b32;
 
-typedef union _Color {
-    u32 packed;
-    struct {
-        u8 r, g, b, a;
-    };
-} Color;
-
-u32 format_color(Color col);
-
 #endif // FINCH_CORE_H

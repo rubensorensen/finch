@@ -13,6 +13,8 @@
 #include <time.h>
 #include <string.h>
 #include <errno.h>
+#include <dlfcn.h>
+#include <sys/stat.h>
 
 typedef struct _X11State {
     Display *display;
@@ -27,7 +29,6 @@ typedef struct _X11State {
     
     f32 time_since_window_title_updated;
 } X11State;
-
 
 static void x11_init(X11State* x11_state)
 {
@@ -73,6 +74,7 @@ static void x11_render(X11State* x11_state, GameState* game_state)
 {
     XWindowAttributes window_attributes;
     XGetWindowAttributes(x11_state->display, x11_state->window, &window_attributes);
+    
     XImage* img = XCreateImage(x11_state->display,
                                window_attributes.visual, window_attributes.depth,
                                ZPixmap, 0, (char*)game_state->pixelbuffer,
@@ -320,7 +322,7 @@ static void x11_handle_events(X11State* x11_state, GameState* game_state)
             } break;
             case ClientMessage: {
                 if ((Atom)e.xclient.data.l[0] == x11_state->wm_delete_window) {
-                    game_state->running = 0;
+                    game_state->running = false;
                 }
             } break;
             case Expose: {
@@ -346,7 +348,7 @@ static void x11_handle_events(X11State* x11_state, GameState* game_state)
     }
 }
 
-static f32 clock_now()
+static f32 clock_now(void)
 {
     struct timespec now;
     if (clock_gettime(CLOCK_MONOTONIC, &now) < 0) {
@@ -357,11 +359,45 @@ static f32 clock_now()
     return (f32)(now.tv_sec + (now.tv_nsec / 1000) * 0.000001);
 }
 
-// Implemented in game code
-extern void game_update(GameState*, f32);
+static void* sandbox_so;
+static void (*game_update) (GameState*, f32);
+static time_t sandbox_last_change;
+
+static void load_game_if_changed(void)
+{
+    struct stat statbuf;
+    if (stat("./libsandbox.so", &statbuf) < 0) {
+        fprintf(stderr, "[ERROR] Could not read file stats from ./libsandbox.so: %s\n",
+                strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    time_t time = statbuf.st_mtime;
+
+    if (time != sandbox_last_change) {
+        sandbox_last_change = time;
+        if (sandbox_so != NULL) {
+            dlclose(sandbox_so);
+            sandbox_so = NULL;
+        }
+
+        sandbox_so = dlopen("./libsandbox.so", RTLD_LAZY);
+        if (sandbox_so == NULL) {
+            fprintf(stderr, "[ERROR] Could not open /tmp/libsandbox.so: %s\n",
+                    dlerror());
+        }
+    
+        game_update = dlsym(sandbox_so, "game_update");
+        if (game_update == NULL) {
+            fprintf(stderr, "[ERROR] Could not load game_update function from /tmp/libsandbox.so: %s\n",
+                    dlerror());
+            exit(EXIT_FAILURE);
+        }
+    }
+}
 
 int main(void)
 {
+    load_game_if_changed();
     X11State x11_state = {0};
     x11_state.window_title  = "Finch";
     x11_state.window_width  = 1280;
@@ -373,14 +409,14 @@ int main(void)
 
     f32 prev_time = clock_now();
     
-    game_state.running = 1;
+    game_state.running = true;
     while (game_state.running) {
-        
+        load_game_if_changed();
         f32 curr_time = clock_now();
         f32 delta_time = curr_time - prev_time;
         
         x11_handle_events(&x11_state, &game_state);
-        game_update(&game_state, delta_time);
+        (*game_update)(&game_state, delta_time);
         x11_render(&x11_state, &game_state);
 
         // Update fps in window title approx. every second
@@ -401,6 +437,9 @@ int main(void)
     if (game_state.pixelbuffer) {
         free(game_state.pixelbuffer);
     }
+    
+    dlclose(sandbox_so);
+    sandbox_so = NULL;
     
     return EXIT_SUCCESS;
 }
