@@ -1,5 +1,5 @@
-#include "core.h"
-#include "game.h"
+#include "finch/core.h"
+#include "finch/game.h"
 
 #include <stdio.h>
 #include <math.h>
