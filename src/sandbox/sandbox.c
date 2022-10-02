@@ -23,11 +23,6 @@ static u32 mouse_x, mouse_y;
 static u32 mouse_x_prev, mouse_y_prev;
 static b32 button_was_down[FC_BUTTON_COUNT];
 
-void test(void)
-{
-    printf("This is a test!\n");
-}
-
 static void handle_game_events(GameState* game_state)
 {
     while (game_state->unhandled_events) {
@@ -62,12 +57,12 @@ static void handle_game_events(GameState* game_state)
             } break;
             case FC_EVENT_TYPE_WHEEL_SCROLLED: {
                 if (e.scroll_wheel_vertical_direction != 0) {
-                    vertical_offset += velocity * -e.scroll_wheel_vertical_direction;
+                    vertical_offset += velocity * e.scroll_wheel_vertical_direction;
                     printf("[EVENT] Mouse wheel scrolled %s\n",
                            e.scroll_wheel_vertical_direction > 0 ? "up" : "down");
                 }
                 if (e.scroll_wheel_horizontal_direction != 0) {
-                    horizontal_offset += velocity * e.scroll_wheel_horizontal_direction;
+                    horizontal_offset += velocity * -e.scroll_wheel_horizontal_direction;
                     printf("[EVENT] Mouse wheel scrolled %s\n",
                            e.scroll_wheel_horizontal_direction > 0 ? "right" : "left");
                 }
@@ -84,7 +79,6 @@ static void handle_game_events(GameState* game_state)
 
 }
 
-
 static u32 format_color(Color col)
 {
     return (u32)(col.a << 24 |
@@ -98,18 +92,18 @@ void game_update(GameState* game_state, f32 dt)
 {   
     handle_game_events(game_state);
     
-    velocity = key_is_down[FC_KEY_SPACE] ? 5.0f : 2.5f;
+    velocity = key_is_down[FC_KEY_SPACE] ? 500.0f : 250.0f;
     if (key_is_down[FC_KEY_W]) {
-        vertical_offset -= velocity;
+        vertical_offset -= velocity * dt;
     }
     if (key_is_down[FC_KEY_S]) {
-        vertical_offset += velocity;
+        vertical_offset += velocity * dt;
     }
     if (key_is_down[FC_KEY_A]) {
-        horizontal_offset -= velocity;
+        horizontal_offset -= velocity * dt;
     }
     if (key_is_down[FC_KEY_D]) {
-        horizontal_offset += velocity;
+        horizontal_offset += velocity * dt;
     }
     if (button_is_down[FC_BUTTON_LEFT]) {
         if (!button_was_down[FC_BUTTON_LEFT]) {
@@ -118,8 +112,8 @@ void game_update(GameState* game_state, f32 dt)
             s32 dx = mouse_x - mouse_x_prev;
             s32 dy = mouse_y - mouse_y_prev;
 
-            horizontal_offset -= dx;
-            vertical_offset -= dy;
+            horizontal_offset += dx * dt * 100.0f;
+            vertical_offset += dy * dt * 100.0f;
         }
     }
     
