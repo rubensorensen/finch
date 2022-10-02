@@ -8,6 +8,8 @@
 #include "events.h"
 #include "game.h"
 
+#include "loggy/loggy.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -15,6 +17,8 @@
 #include <errno.h>
 #include <dlfcn.h>
 #include <sys/stat.h>
+
+LgLogger logger;
 
 typedef struct _X11State {
     Display *display;
@@ -34,8 +38,7 @@ static void x11_init(X11State* x11_state)
 {
     x11_state->display = XOpenDisplay(NULL);
     if (x11_state->display == NULL) {
-        fprintf(stderr, "[ERROR] Could not open default display.\n");
-        exit(EXIT_FAILURE);
+        LG_FATAL(&logger, "Could not open default display.");
     }
 
     x11_state->screen = DefaultScreen(x11_state->display);
@@ -285,7 +288,7 @@ static void x11_handle_events(X11State* x11_state, GameState* game_state)
                         finch_event.scroll_wheel_horizontal_direction = 1;
                     } break;
                     default: {
-                        printf("Unhandled button: %u\n", button);
+                        LG_WARN(&logger, "Unhandled button: %Cb%Vu%Cn", button);
                     }
                 }
             } break;
@@ -352,9 +355,8 @@ static f32 clock_now(void)
 {
     struct timespec now;
     if (clock_gettime(CLOCK_MONOTONIC, &now) < 0) {
-        fprintf(stderr, "[ERROR] could not get current monotonic time: %s\n",
+        LG_FATAL(&logger, "Could not get current monotonic time: %s",
                 strerror(errno));
-        exit(EXIT_FAILURE);
     }
     return (f32)(now.tv_sec + (now.tv_nsec / 1000) * 0.000001);
 }
@@ -367,9 +369,8 @@ static void load_game_if_changed(void)
 {
     struct stat statbuf;
     if (stat("./libsandbox.so", &statbuf) < 0) {
-        fprintf(stderr, "[ERROR] Could not read file stats from ./libsandbox.so: %s\n",
+        LG_FATAL(&logger, "Could not read file stats from ./libsandbox.so: %s",
                 strerror(errno));
-        exit(EXIT_FAILURE);
     }
     time_t time = statbuf.st_mtime;
 
@@ -382,13 +383,13 @@ static void load_game_if_changed(void)
 
         sandbox_so = dlopen("./libsandbox.so", RTLD_LAZY);
         if (sandbox_so == NULL) {
-            fprintf(stderr, "[ERROR] Could not open /tmp/libsandbox.so: %s\n",
+            LG_FATAL(&logger, "Could not open /tmp/libsandbox.so: %s",
                     dlerror());
         }
     
         game_update = dlsym(sandbox_so, "game_update");
         if (game_update == NULL) {
-            fprintf(stderr, "[ERROR] Could not load game_update function from /tmp/libsandbox.so: %s\n",
+            LG_FATAL(&logger, "Could not load game_update function from /tmp/libsandbox.so: %s",
                     dlerror());
             exit(EXIT_FAILURE);
         }
@@ -397,7 +398,10 @@ static void load_game_if_changed(void)
 
 int main(void)
 {
+    loggy_init(&logger, "%TT (%Fn:%Fl) %CcFINCH%Cn [%Gl] ");
+    
     load_game_if_changed();
+    
     X11State x11_state = {0};
     x11_state.window_title  = "Finch";
     x11_state.window_width  = 1280;
@@ -405,6 +409,7 @@ int main(void)
     x11_init(&x11_state);
     
     GameState game_state = {};
+    loggy_init(&game_state.logger, "%TT (%Fn:%Fl) %CcSANDBOX%Cn [%Gl] ");
     game_resize(&game_state, x11_state.window_width, x11_state.window_height);
 
     f32 prev_time = clock_now();

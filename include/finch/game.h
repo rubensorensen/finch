@@ -2,6 +2,7 @@
 #define FINCH_GAME_H
 
 #include "events.h"
+#include "loggy/loggy.h"
 
 #define MAX_EVENTS 1000
 
@@ -20,6 +21,8 @@ typedef struct _GameState {
     
     FcEvent events[MAX_EVENTS];
     u32 unhandled_events;
+
+    LgLogger logger;
 } GameState;
 
 #endif // FINCH_GAME_H

@@ -79,10 +79,6 @@ typedef enum _FcKey {
     FC_KEY_COUNT
 } FcKey;
 
-#define FC_KEY_CTRL  (FC_KEY_LEFT_CTRL  | FC_KEY_RIGHT_CTRL)
-#define FC_KEY_SHIFT (FC_KEY_LEFT_SHIFT | FC_KEY_RIGHT_SHIFT)
-#define FC_KEY_ALT   (FC_KEY_LEFT_ALT   | FC_KEY_RIGHT_ALT)
-
 typedef struct _FcEvent {
     FcEventType type;
     FcButton button;

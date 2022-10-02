@@ -3,13 +3,13 @@
 CC=gcc
 CFLAGS="-Wall -Wextra -std=c11 -O2 -ggdb"
 
-INCLUDE_PATH="-I include/ -I include/finch/"
-SRC_PATH="src/finch"
-LIBS="$(pkg-config --cflags --libs x11) -lm -ldl -L build/loggy/bin -lloggy"
+INCLUDE_PATH="include/loggy"
+SRC_PATH="src/loggy"
+LIBS=""
 
-BUILD_PATH="build/finch"
+BUILD_PATH="build/loggy"
 BIN_PATH=$BUILD_PATH"/bin/"
-BIN="finch"
+BIN="loggy"
 
 SRC=$(find $SRC_PATH -name '*.c' | sort -k 1nr | cut -f2-)
 OBJ=$(echo $SRC | sed "s|\.c|\.o|g" | sed "s|$SRC_PATH|$BUILD_PATH|g")
@@ -58,15 +58,15 @@ compile_c()
         SRC_FILE=$(echo $SRC | cut -d\  -f$i)
         OBJ_FILE=$(echo $OBJ | cut -d\  -f$i)
         echo -e "${bold}${yellow}Compiling:${normal} \t$SRC_FILE -> $OBJ_FILE"
-        $CC $CFLAGS -c $INCLUDE_PATH $SRC_FILE -o $OBJ_FILE
+        $CC $CFLAGS -c -I $INCLUDE_PATH -fpic $SRC_FILE -o $OBJ_FILE
     done
 }
 
 link_program()
 {
     # Link program
-    echo -e "${bold}${cyan}Linking:${normal}   \t$OBJ -> $BIN_PATH/$BIN"
-    $CC $CFLAGS $INCLUDE_PATH -o $BIN_PATH/$BIN $OBJ $LIBS
+    echo -e "${bold}${cyan}Linking:${normal}   \t$OBJ -> $BIN_PATH/lib$BIN.so"
+    $CC $CFLAGS -shared -I $INCLUDE_PATH -o $BIN_PATH/lib$BIN.so $OBJ $LIBS
 }
 
 #

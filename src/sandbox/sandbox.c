@@ -1,5 +1,7 @@
 #include "finch/game.h"
 
+#include "loggy/loggy.h"
+
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
@@ -29,41 +31,42 @@ static void handle_game_events(GameState* game_state)
         FcEvent e = game_state->events[--game_state->unhandled_events];
         switch (e.type) {
             case FC_EVENT_TYPE_NONE: {
-                fprintf(stderr, "[ERROR] Game received event of type None\n");
-                exit(EXIT_FAILURE);
-            }
+                LG_FATAL(&game_state->logger, "Game received event of type %CrNone%Cn");
+            } break;
                 
             case FC_EVENT_TYPE_BUTTON_PRESSED: {
-                printf("[EVENT] %s mouse button pressed at (%u, %u)\n",
-                       buttons[e.button], e.mouse_x, e.mouse_y);
+                LG_INFO(&game_state->logger,
+                        "%Cb%Vs%Cn mouse button pressed at %Cp(%Vu, %Vu)%Cn",
+                        buttons[e.button], e.mouse_x, e.mouse_y);
                 button_is_down[e.button] = true;
                 button_was_down[e.button] = false;
             } break;
                 
             case FC_EVENT_TYPE_BUTTON_RELEASED: {
-                printf("[EVENT] %s mouse button released at (%u, %u)\n",
-                       buttons[e.button], e.mouse_x, e.mouse_y);
+                LG_INFO(&game_state->logger,
+                        "%Cb%Vs%Cn mouse button released at %Cp(%Vu, %Vu)%Cn",
+                        buttons[e.button], e.mouse_x, e.mouse_y);
                 button_is_down[e.button] = false;
             } break;
                 
             case FC_EVENT_TYPE_KEY_PRESSED: {
-                printf("[EVENT] Key pressed: %s\n", keys[e.key]);
+                LG_INFO(&game_state->logger, "Key pressed: %Cb%Vs%Cn", keys[e.key]);
                 key_is_down[e.key] = true;
             } break;
             case FC_EVENT_TYPE_KEY_RELEASED: {
-                printf("[EVENT] Key released: %s\n", keys[e.key]);
+                LG_INFO(&game_state->logger, "Key released: %Cb%Vs%Cn", keys[e.key]);
                 key_is_down[e.key] = false;
                 
             } break;
             case FC_EVENT_TYPE_WHEEL_SCROLLED: {
                 if (e.scroll_wheel_vertical_direction != 0) {
                     vertical_offset += velocity * e.scroll_wheel_vertical_direction;
-                    printf("[EVENT] Mouse wheel scrolled %s\n",
+                    LG_INFO(&game_state->logger, "Mouse wheel scrolled %Cb%Vs%Cn",
                            e.scroll_wheel_vertical_direction > 0 ? "up" : "down");
                 }
                 if (e.scroll_wheel_horizontal_direction != 0) {
                     horizontal_offset += velocity * -e.scroll_wheel_horizontal_direction;
-                    printf("[EVENT] Mouse wheel scrolled %s\n",
+                    LG_INFO(&game_state->logger, "Mouse wheel scrolled %Cb%Vs%Cn",
                            e.scroll_wheel_horizontal_direction > 0 ? "right" : "left");
                 }
             } break;
