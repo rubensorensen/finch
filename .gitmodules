@@ -1,0 +1,3 @@
+[submodule "extern/loggy"]
+	path = extern/loggy
+	url = git@github.com:rubensorensen/loggy.git

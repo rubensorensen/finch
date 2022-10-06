@@ -455,46 +455,48 @@ static f64 clock_now(void)
     return (f64)(now.tv_sec + (now.tv_nsec / 1000) * 0.000001);
 }
 
-static void* sandbox_so;
-static void (*game_update) (GameState*, f32);
-static time_t sandbox_last_change;
+/* static void* sandbox_so; */
+/* static void (*game_update) (GameState*, f32); */
+/* static time_t sandbox_last_change; */
 
-static void load_game_if_changed(void)
-{
-    struct stat statbuf;
-    if (stat("./libsandbox.so", &statbuf) < 0) {
-        LG_FATAL(&logger, "Could not read file stats from ./libsandbox.so: %s",
-                strerror(errno));
-    }
-    time_t time = statbuf.st_mtime;
+/* static void load_game_if_changed(void) */
+/* { */
+/*     struct stat statbuf; */
+/*     if (stat("./libsandbox.so", &statbuf) < 0) { */
+/*         LG_FATAL(&logger, "Could not read file stats from ./libsandbox.so: %s", */
+/*                 strerror(errno)); */
+/*     } */
+/*     time_t time = statbuf.st_mtime; */
 
-    if (time != sandbox_last_change) {
-        sandbox_last_change = time;
-        if (sandbox_so != NULL) {
-            dlclose(sandbox_so);
-            sandbox_so = NULL;
-        }
+/*     if (time != sandbox_last_change) { */
+/*         sandbox_last_change = time; */
+/*         if (sandbox_so != NULL) { */
+/*             dlclose(sandbox_so); */
+/*             sandbox_so = NULL; */
+/*         } */
 
-        sandbox_so = dlopen("./libsandbox.so", RTLD_LAZY);
-        if (sandbox_so == NULL) {
-            LG_FATAL(&logger, "Could not open /tmp/libsandbox.so: %s",
-                    dlerror());
-        }
+/*         sandbox_so = dlopen("./libsandbox.so", RTLD_LAZY); */
+/*         if (sandbox_so == NULL) { */
+/*             LG_FATAL(&logger, "Could not open /tmp/libsandbox.so: %s", */
+/*                     dlerror()); */
+/*         } */
     
-        game_update = dlsym(sandbox_so, "game_update");
-        if (game_update == NULL) {
-            LG_FATAL(&logger, "Could not load game_update function from /tmp/libsandbox.so: %s",
-                    dlerror());
-            exit(EXIT_FAILURE);
-        }
-    }
-}
+/*         game_update = dlsym(sandbox_so, "game_update"); */
+/*         if (game_update == NULL) { */
+/*             LG_FATAL(&logger, "Could not load game_update function from /tmp/libsandbox.so: %s", */
+/*                     dlerror()); */
+/*             exit(EXIT_FAILURE); */
+/*         } */
+/*     } */
+/* } */
+
+extern void game_update(GameState*, f64);
 
 int main(void)
 {
     loggy_init(&logger, "%TT (%Fn:%Fl) %CcFINCH%Cn [%Gl] ");
     
-    load_game_if_changed();
+    /* load_game_if_changed(); */
     
     X11State x11_state = {0};
     x11_state.window_title  = "Finch";
@@ -510,12 +512,13 @@ int main(void)
     
     game_state.running = true;
     while (game_state.running) {
-        load_game_if_changed();
+        /* load_game_if_changed(); */
         f64 curr_time = clock_now();
         f64 delta_time = curr_time - prev_time;
         
         x11_handle_events(&x11_state, &game_state);
-        (*game_update)(&game_state, delta_time);
+        /* (*game_update)(&game_state, delta_time); */
+        game_update(&game_state, delta_time);
         x11_put_pixelbuffer_on_screen(&x11_state, &game_state);
 
         // Update fps in window title approx. every second
@@ -537,8 +540,8 @@ int main(void)
         free(game_state.pixelbuffer);
     }
     
-    dlclose(sandbox_so);
-    sandbox_so = NULL;
+    /* dlclose(sandbox_so); */
+    /* sandbox_so = NULL; */
     
     return EXIT_SUCCESS;
 }
