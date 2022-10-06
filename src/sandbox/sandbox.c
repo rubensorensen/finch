@@ -127,9 +127,9 @@ void game_update(GameState* game_state, f32 dt)
             f32 v = j / (f32)game_state->height_px;
 
             Color col = {0};
-            col.r = (sinf(powf(u, v) * time_elapsed_seconds * 2.5f) + 1) / 2.0f * 255.0f;
+            /* col.r = (sinf(powf(u, v) * time_elapsed_seconds * 2.5f) + 1) / 2.0f * 255.0f; */
             /* col.r = 0xFFu; */
-            /* col.r = 0x00u; */
+            col.r = 0x00u;
             col.b = (u8)i + horizontal_offset;
             col.g = (u8)j + vertical_offset;
             col.a = 0xFFu;            

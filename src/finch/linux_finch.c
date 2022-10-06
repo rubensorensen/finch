@@ -351,14 +351,14 @@ static void x11_handle_events(X11State* x11_state, GameState* game_state)
     }
 }
 
-static f32 clock_now(void)
+static f64 clock_now(void)
 {
     struct timespec now;
     if (clock_gettime(CLOCK_MONOTONIC, &now) < 0) {
         LG_FATAL(&logger, "Could not get current monotonic time: %s",
                 strerror(errno));
     }
-    return (f32)(now.tv_sec + (now.tv_nsec / 1000) * 0.000001);
+    return (f64)(now.tv_sec + (now.tv_nsec / 1000) * 0.000001);
 }
 
 static void* sandbox_so;
@@ -412,13 +412,13 @@ int main(void)
     loggy_init(&game_state.logger, "%TT (%Fn:%Fl) %CcSANDBOX%Cn [%Gl] ");
     game_resize(&game_state, x11_state.window_width, x11_state.window_height);
 
-    f32 prev_time = clock_now();
+    f64 prev_time = clock_now();
     
     game_state.running = true;
     while (game_state.running) {
         load_game_if_changed();
-        f32 curr_time = clock_now();
-        f32 delta_time = curr_time - prev_time;
+        f64 curr_time = clock_now();
+        f64 delta_time = curr_time - prev_time;
         
         x11_handle_events(&x11_state, &game_state);
         (*game_update)(&game_state, delta_time);
@@ -428,7 +428,7 @@ int main(void)
         x11_state.time_since_window_title_updated += delta_time;
         if (x11_state.time_since_window_title_updated > 1.0f) {
             char buf[1000];
-            sprintf(buf, "%s - %dfps", x11_state.window_title, (u32)(1.0f / delta_time));
+            sprintf(buf, "%s - %dfps", x11_state.window_title, (u32)(1.0 / delta_time));
             XStoreName(x11_state.display, x11_state.window, buf);
             x11_state.time_since_window_title_updated = 0.0f;
         }
