@@ -73,7 +73,7 @@ static void x11_deinit(X11State* x11_state)
     XCloseDisplay(x11_state->display);
 }
 
-static void x11_render(X11State* x11_state, GameState* game_state)
+static void x11_put_pixelbuffer_on_screen(X11State* x11_state, GameState* game_state)
 {
     XWindowAttributes window_attributes;
     XGetWindowAttributes(x11_state->display, x11_state->window, &window_attributes);
@@ -115,6 +115,8 @@ static void x11_resize_window(X11State* x11_state, u32 new_width, u32 new_height
 static void x11_handle_events(X11State* x11_state, GameState* game_state)
 {
     game_state->unhandled_events = 0;
+    game_state->input_state.mouse_dx = 0;
+    game_state->input_state.mouse_dy = 0;
     while (XPending(x11_state->display) > 0) {
         FcEvent finch_event = {0};
         
@@ -125,65 +127,70 @@ static void x11_handle_events(X11State* x11_state, GameState* game_state)
             case KeyPress: {
                 finch_event.type = FC_EVENT_TYPE_KEY_PRESSED;
                 KeySym key = XLookupKeysym(&e.xkey, 0);
+                FcKey finch_key = FC_KEY_NONE;
                 
                 // Character key
                 if (key >= 'a' && key <= 'z') {
-                    finch_event.key = (FcKey)(key - 'a' + FC_KEY_A);
-                    break;
+                    finch_key = (FcKey)(key - 'a' + FC_KEY_A);
                 }
 
                 // Numeric key
-                if (key >= '0' && key <= '9') {
-                    finch_event.key = (FcKey)(key - '0' + FC_KEY_0);
-                    break;
+                else if (key >= '0' && key <= '9') {
+                    finch_key = (FcKey)(key - '0' + FC_KEY_0);
                 }
 
                 // Special keys
-                switch (key) {
-                    case 32: {
-                        finch_event.key = FC_KEY_SPACE;
-                    } break;
-                    case 65507: {
-                        finch_event.key = FC_KEY_LEFT_CTRL;
-                    } break;
-                    case 65508: {
-                        finch_event.key = FC_KEY_RIGHT_CTRL;
-                    } break;
-                    case 65505: {
-                        finch_event.key = FC_KEY_LEFT_SHIFT;
-                    } break;
-                    case 65506: {
-                        finch_event.key = FC_KEY_RIGHT_SHIFT;
-                    } break;
-                    case 65513: {
-                        finch_event.key = FC_KEY_LEFT_ALT;
-                    } break;
-                    case 65027: {
-                        finch_event.key = FC_KEY_RIGHT_ALT;
-                    } break;
-                    case 65289: {
-                        finch_event.key = FC_KEY_TAB;
-                    } break;
-                    case 65307: {
-                        finch_event.key = FC_KEY_ESC;
-                    } break;
-                    case 65293: {
-                        finch_event.key = FC_KEY_ENTER;
-                    } break;
-                    case 65288: {
-                        finch_event.key = FC_KEY_BACKSPACE;
-                    } break;
-                    default: {
-                        // Unhandled key
-                        finch_event.type = FC_EVENT_TYPE_NONE;
+                else {
+                    switch (key) {
+                        case 32: {
+                            finch_key = FC_KEY_SPACE;
+                        } break;
+                        case 65507: {
+                            finch_key = FC_KEY_LEFT_CTRL;
+                        } break;
+                        case 65508: {
+                            finch_key = FC_KEY_RIGHT_CTRL;
+                        } break;
+                        case 65505: {
+                            finch_key = FC_KEY_LEFT_SHIFT;
+                        } break;
+                        case 65506: {
+                            finch_key = FC_KEY_RIGHT_SHIFT;
+                        } break;
+                        case 65513: {
+                            finch_key = FC_KEY_LEFT_ALT;
+                        } break;
+                        case 65027: {
+                            finch_key = FC_KEY_RIGHT_ALT;
+                        } break;
+                        case 65289: {
+                            finch_key = FC_KEY_TAB;
+                        } break;
+                        case 65307: {
+                            finch_key = FC_KEY_ESC;
+                        } break;
+                        case 65293: {
+                            finch_key = FC_KEY_ENTER;
+                        } break;
+                        case 65288: {
+                            finch_key = FC_KEY_BACKSPACE;
+                        } break;
+                        default: {
+                            // Unhandled key
+                            finch_event.type = FC_EVENT_TYPE_NONE;
+                            finch_key = FC_KEY_NONE;
+                        }
                     }
                 }
+                
+                finch_event.key = finch_key;
+                game_state->input_state.key_is_down[finch_key] = true;
                 
             } break;
             case KeyRelease: {
 
                 // Remove auto-generated key-releases and key-presses
-                // generated from repeats.
+                // from repeats.
                 if (XEventsQueued(x11_state->display, QueuedAfterReading)) {
                     XEvent ne;
                     XPeekEvent(x11_state->display, &ne);
@@ -197,55 +204,65 @@ static void x11_handle_events(X11State* x11_state, GameState* game_state)
      
                 finch_event.type = FC_EVENT_TYPE_KEY_RELEASED;
                 KeySym key = XLookupKeysym(&e.xkey, 0);
+                FcKey finch_key = FC_KEY_NONE;
 
                 // Character key
                 if (key >= 'a' && key <= 'z') {
-                    finch_event.key = (FcKey)(key - 'a' + FC_KEY_A);
-                    break;
+                    finch_key = (FcKey)(key - 'a' + FC_KEY_A);
                 }
 
                 // Numeric key
-                if (key >= '0' && key <= '9') {
-                    finch_event.key = (FcKey)(key - '0' + FC_KEY_0);
-                    break;
+                else if (key >= '0' && key <= '9') {
+                    finch_key = (FcKey)(key - '0' + FC_KEY_0);
                 }
 
-                // Special keys
-                switch (key) {
-                    case 32: {
-                        finch_event.key = FC_KEY_SPACE;
-                    } break;
-                    case 65507: {
-                        finch_event.key = FC_KEY_LEFT_CTRL;
-                    } break;
-                    case 65508: {
-                        finch_event.key = FC_KEY_RIGHT_CTRL;
-                    } break;
-                    case 65505: {
-                        finch_event.key = FC_KEY_LEFT_SHIFT;
-                    } break;
-                    case 65506: {
-                        finch_event.key = FC_KEY_RIGHT_SHIFT;
-                    } break;
-                    case 65513: {
-                        finch_event.key = FC_KEY_LEFT_ALT;
-                    } break;
-                    case 65027: {
-                        finch_event.key = FC_KEY_RIGHT_ALT;
-                    } break;
-                    case 65289: {
-                        finch_event.key = FC_KEY_TAB;
-                    } break;
-                    case 65307: {
-                        finch_event.key = FC_KEY_ESC;
-                    } break;
-                    case 65293: {
-                        finch_event.key = FC_KEY_ENTER;
-                    } break;
+                else {
+                    // Special keys
+                    switch (key) {
+                        case 32: {
+                            finch_key = FC_KEY_SPACE;
+                        } break;
+                        case 65507: {
+                            finch_key = FC_KEY_LEFT_CTRL;
+                        } break;
+                        case 65508: {
+                            finch_key = FC_KEY_RIGHT_CTRL;
+                        } break;
+                        case 65505: {
+                            finch_key = FC_KEY_LEFT_SHIFT;
+                        } break;
+                        case 65506: {
+                            finch_key = FC_KEY_RIGHT_SHIFT;
+                        } break;
+                        case 65513: {
+                            finch_key = FC_KEY_LEFT_ALT;
+                        } break;
+                        case 65027: {
+                            finch_key = FC_KEY_RIGHT_ALT;
+                        } break;
+                        case 65289: {
+                            finch_key = FC_KEY_TAB;
+                        } break;
+                        case 65307: {
+                            finch_key = FC_KEY_ESC;
+                        } break;
+                        case 65293: {
+                            finch_key = FC_KEY_ENTER;
+                        } break;
+                        default: {
+                            finch_event.type = FC_EVENT_TYPE_NONE;
+                            finch_key = FC_KEY_NONE;
+                        }
+                    }
                 }
+                
+                finch_event.key = finch_key;
+                game_state->input_state.key_is_down[finch_key] = false;
+                
             } break;
             case ButtonPress: {
                 u32 button = e.xbutton.button;
+                FcButton finch_button = FC_BUTTON_NONE;
                 
                 if (button >= 1 && button <= 3) {
                     finch_event.type = FC_EVENT_TYPE_BUTTON_PRESSED;
@@ -255,21 +272,21 @@ static void x11_handle_events(X11State* x11_state, GameState* game_state)
                     finch_event.type = FC_EVENT_TYPE_WHEEL_SCROLLED;
                 }
                 
-                finch_event.mouse_x = e.xbutton.x;
+                finch_event.mouse_x = e.xbutton.x;                
                 finch_event.mouse_y = e.xbutton.y;
                 
                 switch (button) {
                     case 1: {
                         // Left mouse button
-                        finch_event.button = FC_BUTTON_LEFT;
+                        finch_button = FC_BUTTON_LEFT;
                     } break;
                     case 2: {
                         // Middle mouse button
-                        finch_event.button = FC_BUTTON_MIDDLE;
+                        finch_button = FC_BUTTON_MIDDLE;
                     } break;
                     case 3: {
                         // Right mouse button
-                        finch_event.button = FC_BUTTON_RIGHT;
+                        finch_button = FC_BUTTON_RIGHT;
                     } break;
                     case 4: {
                         // Mouse scroll up
@@ -288,40 +305,64 @@ static void x11_handle_events(X11State* x11_state, GameState* game_state)
                         finch_event.scroll_wheel_horizontal_direction = 1;
                     } break;
                     default: {
-                        LG_WARN(&logger, "Unhandled button: %Cb%Vu%Cn", button);
+                        // Unhandled button
+                        finch_event.type = FC_EVENT_TYPE_NONE;
+                        finch_button = FC_BUTTON_NONE;
                     }
                 }
+
+                finch_event.button = finch_button;
+                game_state->input_state.button_is_down[finch_button] = true;
+                
             } break;
             case ButtonRelease: {
                 u32 button = e.xbutton.button;
+
+                // Ignore release events from scrollwheels
                 if (button < 1 || button > 3) {
                     break;
                 }
                 
                 finch_event.type = FC_EVENT_TYPE_BUTTON_RELEASED;
+                FcButton finch_button = FC_BUTTON_NONE;
+                
                 finch_event.mouse_x = e.xbutton.x;
                 finch_event.mouse_y = e.xbutton.y;
                 
                 switch (button) {
                     case 1: {
                         // Left mouse button
-                        finch_event.button = FC_BUTTON_LEFT;
+                        finch_button = FC_BUTTON_LEFT;
                     } break;
                     case 2: {
-                        // Middle mouse button
-                        finch_event.button = FC_BUTTON_MIDDLE;
+                        // Middlbe mouse button
+                        finch_button = FC_BUTTON_MIDDLE;
                     } break;
                     case 3: {
                         // Right mouse button
-                        finch_event.button = FC_BUTTON_RIGHT;
+                        finch_button = FC_BUTTON_RIGHT;
                     } break;
                 }
+
+                finch_event.button = finch_button;
+                game_state->input_state.button_is_down[finch_button] = false;
+                
             } break;
             case MotionNotify: {
-                // TODO: MotionNotify seems to be inacurrate. Look into this!
                 finch_event.type = FC_EVENT_TYPE_MOUSE_MOVED;
-                finch_event.mouse_x = e.xmotion.x;
-                finch_event.mouse_y = e.xmotion.y;
+                
+                finch_event.mouse_x = e.xbutton.x;
+                game_state->input_state.mouse_dx +=
+                    (e.xbutton.x - game_state->input_state.mouse_x);
+                
+                game_state->input_state.mouse_x = e.xmotion.x;
+                
+                finch_event.mouse_y = e.xbutton.y;
+                game_state->input_state.mouse_dy +=
+                    (e.xbutton.y - game_state->input_state.mouse_y);
+                
+                game_state->input_state.mouse_y = e.xmotion.y;
+                
             } break;
             case ClientMessage: {
                 if ((Atom)e.xclient.data.l[0] == x11_state->wm_delete_window) {
@@ -329,7 +370,7 @@ static void x11_handle_events(X11State* x11_state, GameState* game_state)
                 }
             } break;
             case Expose: {
-                x11_render(x11_state, game_state);
+                x11_put_pixelbuffer_on_screen(x11_state, game_state);
             } break;
             case ConfigureNotify: {
                 XConfigureEvent xce = e.xconfigure;
@@ -422,7 +463,7 @@ int main(void)
         
         x11_handle_events(&x11_state, &game_state);
         (*game_update)(&game_state, delta_time);
-        x11_render(&x11_state, &game_state);
+        x11_put_pixelbuffer_on_screen(&x11_state, &game_state);
 
         // Update fps in window title approx. every second
         x11_state.time_since_window_title_updated += delta_time;

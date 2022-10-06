@@ -19,12 +19,6 @@ static const char* buttons[] = {
     "None", "Left", "Right", "Middle"
 };
 
-static b32 key_is_down[FC_KEY_COUNT];
-static b32 button_is_down[FC_BUTTON_COUNT];
-static u32 mouse_x, mouse_y;
-static u32 mouse_x_prev, mouse_y_prev;
-static b32 button_was_down[FC_BUTTON_COUNT];
-
 static void handle_game_events(GameState* game_state)
 {
     while (game_state->unhandled_events) {
@@ -38,43 +32,35 @@ static void handle_game_events(GameState* game_state)
                 LG_INFO(&game_state->logger,
                         "%Cb%Vs%Cn mouse button pressed at %Cp(%Vu, %Vu)%Cn",
                         buttons[e.button], e.mouse_x, e.mouse_y);
-                button_is_down[e.button] = true;
-                button_was_down[e.button] = false;
             } break;
                 
             case FC_EVENT_TYPE_BUTTON_RELEASED: {
                 LG_INFO(&game_state->logger,
                         "%Cb%Vs%Cn mouse button released at %Cp(%Vu, %Vu)%Cn",
                         buttons[e.button], e.mouse_x, e.mouse_y);
-                button_is_down[e.button] = false;
             } break;
                 
             case FC_EVENT_TYPE_KEY_PRESSED: {
                 LG_INFO(&game_state->logger, "Key pressed: %Cb%Vs%Cn", keys[e.key]);
-                key_is_down[e.key] = true;
             } break;
+                
             case FC_EVENT_TYPE_KEY_RELEASED: {
                 LG_INFO(&game_state->logger, "Key released: %Cb%Vs%Cn", keys[e.key]);
-                key_is_down[e.key] = false;
-                
             } break;
+                
             case FC_EVENT_TYPE_WHEEL_SCROLLED: {
                 if (e.scroll_wheel_vertical_direction != 0) {
-                    vertical_offset += velocity * e.scroll_wheel_vertical_direction;
+                    vertical_offset -= velocity * e.scroll_wheel_vertical_direction;
                     LG_INFO(&game_state->logger, "Mouse wheel scrolled %Cb%Vs%Cn",
                            e.scroll_wheel_vertical_direction > 0 ? "up" : "down");
                 }
                 if (e.scroll_wheel_horizontal_direction != 0) {
-                    horizontal_offset += velocity * -e.scroll_wheel_horizontal_direction;
+                    horizontal_offset -= velocity * -e.scroll_wheel_horizontal_direction;
                     LG_INFO(&game_state->logger, "Mouse wheel scrolled %Cb%Vs%Cn",
                            e.scroll_wheel_horizontal_direction > 0 ? "right" : "left");
                 }
             } break;
             case FC_EVENT_TYPE_MOUSE_MOVED: {
-                mouse_x_prev = mouse_x;
-                mouse_y_prev = mouse_y;
-                mouse_x = e.mouse_x;
-                mouse_y = e.mouse_y;
             } break;
             default: {}
         }
@@ -94,30 +80,27 @@ static u32 format_color(Color col)
 void game_update(GameState* game_state, f32 dt)
 {   
     handle_game_events(game_state);
+    InputState* input_state = &game_state->input_state;
     
-    velocity = key_is_down[FC_KEY_SPACE] ? 500.0f : 250.0f;
-    if (key_is_down[FC_KEY_W]) {
-        vertical_offset -= velocity * dt;
-    }
-    if (key_is_down[FC_KEY_S]) {
+    velocity = input_state->key_is_down[FC_KEY_SPACE] ? 500.0f : 250.0f;
+    
+    if (input_state->key_is_down[FC_KEY_W]) {
         vertical_offset += velocity * dt;
     }
-    if (key_is_down[FC_KEY_A]) {
-        horizontal_offset -= velocity * dt;
+    if (input_state->key_is_down[FC_KEY_S]) {
+        vertical_offset -= velocity * dt;
     }
-    if (key_is_down[FC_KEY_D]) {
+    if (input_state->key_is_down[FC_KEY_A]) {
         horizontal_offset += velocity * dt;
     }
-    if (button_is_down[FC_BUTTON_LEFT]) {
-        if (!button_was_down[FC_BUTTON_LEFT]) {
-            button_was_down[FC_BUTTON_LEFT] = true;
-        } else {
-            s32 dx = mouse_x - mouse_x_prev;
-            s32 dy = mouse_y - mouse_y_prev;
-
-            horizontal_offset += dx * dt * 100.0f;
-            vertical_offset += dy * dt * 100.0f;
-        }
+    if (input_state->key_is_down[FC_KEY_D]) {
+        horizontal_offset -= velocity * dt;
+    }
+    if (input_state->button_is_down[FC_BUTTON_LEFT]) {
+        LG_INFO(&game_state->logger, "dx: %Vd, \tdy: %Vd",
+                input_state->mouse_dx, input_state->mouse_dy);
+        horizontal_offset += input_state->mouse_dx;
+        vertical_offset   += input_state->mouse_dy;
     }
     
     // Rendering
@@ -127,11 +110,11 @@ void game_update(GameState* game_state, f32 dt)
             f32 v = j / (f32)game_state->height_px;
 
             Color col = {0};
-            /* col.r = (sinf(powf(u, v) * time_elapsed_seconds * 2.5f) + 1) / 2.0f * 255.0f; */
+            col.r = (sinf(powf(u, v) * time_elapsed_seconds * 2.5f) + 1) / 2.0f * 255.0f;
             /* col.r = 0xFFu; */
-            col.r = 0x00u;
-            col.b = (u8)i + horizontal_offset;
-            col.g = (u8)j + vertical_offset;
+            /* col.r = 0x00u; */
+            col.b = (u8)i - horizontal_offset;
+            col.g = (u8)j - vertical_offset;
             col.a = 0xFFu;            
 
             game_state->pixelbuffer[i + j * game_state->width_px] = format_color(col);
