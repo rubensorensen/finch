@@ -76,6 +76,26 @@ typedef enum _FcKey {
     FC_KEY_ENTER,
     FC_KEY_BACKSPACE,
 
+    FC_KEY_CAPS_LOCK,
+
+    FC_KEY_UP,
+    FC_KEY_DOWN,
+    FC_KEY_LEFT,
+    FC_KEY_RIGHT,
+
+    FC_KEY_F1,
+    FC_KEY_F2,
+    FC_KEY_F3,
+    FC_KEY_F4,
+    FC_KEY_F5,
+    FC_KEY_F6,
+    FC_KEY_F7,
+    FC_KEY_F8,
+    FC_KEY_F9,
+    FC_KEY_F10,
+    FC_KEY_F11,
+    FC_KEY_F12,
+    
     FC_KEY_COUNT
 } FcKey;
 

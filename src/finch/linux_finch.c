@@ -18,7 +18,7 @@
 #include <dlfcn.h>
 #include <sys/stat.h>
 
-LgLogger logger;
+static LgLogger logger;
 
 typedef struct _X11State {
     Display *display;
@@ -175,8 +175,61 @@ static void x11_handle_events(X11State* x11_state, GameState* game_state)
                         case 65288: {
                             finch_key = FC_KEY_BACKSPACE;
                         } break;
+                        case 65509: {
+                            finch_key = FC_KEY_CAPS_LOCK;
+                        } break;                            
+                        case 65362: {
+                            finch_key = FC_KEY_UP;
+                        } break;
+                        case 65364: {
+                            finch_key = FC_KEY_DOWN;
+                        } break;
+                        case 65361: {
+                            finch_key = FC_KEY_LEFT;
+                        } break;
+                        case 65363: {
+                            finch_key = FC_KEY_RIGHT;
+                        } break;
+                        case 65470: {
+                            finch_key = FC_KEY_F1;
+                        } break;
+                        case 65471: {
+                            finch_key = FC_KEY_F2;
+                        } break;
+                        case 65472: {
+                            finch_key = FC_KEY_F3;
+                        } break;
+                        case 65473: {
+                            finch_key = FC_KEY_F4;
+                        } break;
+                        case 65474: {
+                            finch_key = FC_KEY_F5;
+                        } break;
+                        case 65475: {
+                            finch_key = FC_KEY_F6;
+                        } break;
+                        case 65476: {
+                            finch_key = FC_KEY_F7;
+                        } break;
+                        case 65477: {
+                            finch_key = FC_KEY_F8;
+                        } break;
+                        case 65478: {
+                            finch_key = FC_KEY_F9;
+                        } break;
+                        case 65479: {
+                            finch_key = FC_KEY_F10;
+                        } break;
+                        case 65480: {
+                            finch_key = FC_KEY_F11;
+                        } break;
+                        case 65481: {
+                            finch_key = FC_KEY_F12;
+                        } break;
                         default: {
                             // Unhandled key
+                            LG_WARN(&logger, "Unhandled key press event (Key: %Vd)",
+                                    key);
                             finch_event.type = FC_EVENT_TYPE_NONE;
                             finch_key = FC_KEY_NONE;
                         }
