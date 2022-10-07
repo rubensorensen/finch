@@ -8,7 +8,7 @@
 #include "events.h"
 #include "game.h"
 
-#include "loggy/loggy.h"
+#include "log/log.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -491,8 +491,8 @@ extern void game_update(GameState*, f64);
 
 int main(void)
 {
-    loggy_init(fc_get_engine_logger(), "%TT (%Fn:%Fl) %CcFINCH%Cn [%Gl] ");
-    loggy_init(fc_get_application_logger(), "%TT (%Fn:%Fl) %CcAPPLICATION%Cn [%Gl] ");
+    fc_logger_init(fc_get_engine_logger(), "%TT (%Fn:%Fl) %CcFINCH%Cn [%Gl] ");
+    fc_logger_init(fc_get_application_logger(), "%TT (%Fn:%Fl) %CcAPPLICATION%Cn [%Gl] ");
     
     /* load_game_if_changed(); */
     

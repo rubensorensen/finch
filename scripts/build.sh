@@ -1,88 +1,92 @@
 #! /usr/bin/sh
 
+source scripts/color_support.sh
+
 CC=gcc
 CFLAGS="-Wall -Wextra -std=c11 -O2 -ggdb"
 
 INCLUDE_PATH="-I include/ -I include/finch/ -I extern/loggy/include"
-SRC_PATH="src/"
-LIBS="$(pkg-config --cflags --libs x11) -lm -ldl -L extern/loggy/build/bin -lloggy"
+SOURCE_PATH="src/"
+LIBS="$(pkg-config --cflags --libs x11) -lm -ldl"
 
 BUILD_PATH="build/"
 BIN_PATH=$BUILD_PATH"/bin/"
 BIN="finch"
 
-SRC=$(find $SRC_PATH -name '*.c' | sort -k 1nr | cut -f2-)
-OBJ=$(echo $SRC | sed "s|\.c|\.o|g" | sed "s|$SRC_PATH|$BUILD_PATH|g")
-
-# Test for color support
-ncolors=$(tput colors)
-if test -n "$ncolors" && test $ncolors -ge 8; then
-    bold="$(tput bold)"
-    underline="$(tput smul)"
-    standout="$(tput smso)"
-    normal="$(tput sgr0)"
-    black="$(tput setaf 0)"
-    red="$(tput setaf 1)"
-    green="$(tput setaf 2)"
-    yellow="$(tput setaf 3)"
-    blue="$(tput setaf 4)"
-    magenta="$(tput setaf 5)"
-    cyan="$(tput setaf 6)"
-    white="$(tput setaf 7)"
-fi
+SOURCES=$(find $SOURCE_PATH -name '*.c' | sort -k 1nr | cut -f2-)
+OBJECTS=$(echo $SOURCES | sed "s|\.c|\.o|g" | sed "s|$SOURCE_PATH|$BUILD_PATH|g")
+MODULES=$(echo $OBJECTS | sed "s|$BUILD_PATH||g" | sed "s|/[^/]*\.o||g" \
+              | xargs -n1 | sort -u | xargs)
 
 clean()
 {
-    echo -e "${bold}${red}Removing:${normal}  \t$BIN"
-    rm -rf $BIN
-    echo -e "${bold}${red}Removing:${normal}  \t$BIN_PATH"
+    echo -e "${BOLD}${RED}Removing:${NORMAL} $BIN_PATH"
     rm -rf $BIN_PATH
-    echo -e "${bold}${red}Removing:${normal}  \t$BUILD_PATH"
+    echo -e "${BOLD}${RED}Removing:${NORMAL} $BUILD_PATH"
     rm -rf $BUILD_PATH
-    exit 0    
 }
 
 create_directories()
 {
-    echo -e "${bold}${green}Creating:${normal}  \t$BUILD_PATH"
+    echo -e "${BOLD}${GREEN}Creating:${NORMAL} $BUILD_PATH"
     mkdir -p $BUILD_PATH
-    echo -e "${bold}${green}Creating:${normal}  \t$BIN_PATH"
+    for MODULE in $MODULES; do
+        MODULE_PATH=$BUILD_PATH/$MODULE
+        echo -e "${BOLD}${GREEN}Creating:${NORMAL} $MODULE_PATH"
+        mkdir -p $MODULE_PATH
+    done
+    echo -e "${BOLD}${GREEN}Creating:${NORMAL} $BIN_PATH"
     mkdir -p $BIN_PATH
 }
 
-compile_c()
+compile_sources()
 {
     # Compile C files
-    CNT=$(echo $SRC | wc -w)
+    CNT=$(echo $SOURCES | wc -w)
     for i in `seq 1 $CNT`; do
-        SRC_FILE=$(echo $SRC | cut -d\  -f$i)
-        OBJ_FILE=$(echo $OBJ | cut -d\  -f$i)
-        echo -e "${bold}${yellow}Compiling:${normal} \t$SRC_FILE -> $OBJ_FILE"
-        $CC $CFLAGS -c $INCLUDE_PATH -fpic $SRC_FILE -o $OBJ_FILE
+        SOURCE_FILE=$(echo $SOURCES | cut -d\  -f$i)
+        OBJECT_FILE=$(echo $OBJECTS | cut -d\  -f$i)
+        echo -e "${BOLD}${BLUE}Compiling:${NORMAL} $SOURCE_FILE -> $OBJECT_FILE"
+        $CC $CFLAGS -c $INCLUDE_PATH -fpic $SOURCE_FILE -o $OBJECT_FILE
     done
 }
 
-link_program()
+link_modules()
 {
-    # Link program
-    echo -e "${bold}${cyan}Linking:${normal}   \t$OBJ -> $BIN_PATH/$BIN"
-    $CC $CFLAGS -shared $INCLUDE_PATH -o $BIN_PATH/lib$BIN.so $OBJ $LIBS
+    for MODULE in $MODULES; do
+        MODULE_PATH=$BUILD_PATH/$MODULE
+        MODULE_OBJECTS=$(find $MODULE_PATH -maxdepth 1 -name '*.o' | sort -k 1nr | cut -f2- | tr '\n' ' ')
+        LIB_NAME="lib$(echo $MODULE | sed 's|/|-|g').a"
+        echo -e "${BOLD}${MAGENTA}Linking:${NORMAL} $MODULE_OBJECTS -> $MODULE_PATH/$LIB_NAME"
+        ar rcs $MODULE_PATH/$LIB_NAME $MODULE_OBJECTS
+    done
 }
 
-#
-# Main part of build script starts here
-#
+link_library()
+{
+    MODULE_LIBS=$(find $BUILD_PATH -name '*.a' | sort -k 1nr | cut -f2- | tr '\n' ' ')
+    LIB_NAME="lib$BIN.so"
+    echo -e "${BOLD}${MAGENTA}Linking:${NORMAL} $MODULE_LIBS -> $BIN_PATH/$LIB_NAME"
+    $CC $CFLAGS -shared -o $BIN_PATH/$LIB_NAME -Wl,--whole-archive $MODULE_LIBS -Wl,--no-whole-archive $LIBS
+}
 
 if test "$1" == '--clean'; then
     clean
+    exit 0
 fi
 
-pushd extern/loggy > /dev/null
-./scripts/build.sh
-popd > /dev/null
+echo -e "${STANDOUT}${BOLD}${GREEN}CREATING DIRECTORIES${NORMAL}"
+create_directories | sed "s|^|    |g"
+echo ""
 
-create_directories
-compile_c
-link_program
+echo -e "${STANDOUT}${BOLD}${GREEN}COMPILING SOURCES${NORMAL}"
+compile_sources | sed "s|^|    |g"
+echo ""
 
-cp extern/loggy/build/bin/* build/bin/
+echo -e "${STANDOUT}${BOLD}${MAGENTA}LINKING MODULES${NORMAL}"
+link_modules | sed "s|^|    |g"
+echo ""
+
+echo -e "${STANDOUT}${BOLD}${MAGENTA}LINKING LIBRARY${NORMAL}"
+link_library | sed "s|^|    |g"
+echo ""
