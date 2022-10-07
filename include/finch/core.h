@@ -19,4 +19,9 @@ typedef double f64;
 
 typedef bool b32;
 
+typedef struct _WindowAttributes {
+    char* title;
+    u32 width, height;
+} WindowAttributes;
+
 #endif // FINCH_CORE_H

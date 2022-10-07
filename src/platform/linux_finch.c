@@ -25,11 +25,7 @@ typedef struct _X11State {
     GC       gc;
     Atom     wm_delete_window;
 
-    const char* window_title;
-    u32 window_width;
-    u32 window_height;
-    
-    f32 time_since_window_title_updated;
+    WindowAttributes window_attributes;
 } X11State;
 
 static void x11_init(X11State* x11_state)
@@ -43,12 +39,12 @@ static void x11_init(X11State* x11_state)
     x11_state->window = XCreateSimpleWindow(x11_state->display,
                                             XDefaultRootWindow(x11_state->display),
                                             0, 0,
-                                            x11_state->window_width,
-                                            x11_state->window_height,
+                                            x11_state->window_attributes.width,
+                                            x11_state->window_attributes.height,
                                             0, 0,
                                             WhitePixel(x11_state->display, x11_state->screen));
 
-    XStoreName(x11_state->display, x11_state->window, x11_state->window_title);
+    XStoreName(x11_state->display, x11_state->window, x11_state->window_attributes.title);
     x11_state->gc = XCreateGC(x11_state->display, x11_state->window, 0, NULL);
 
     x11_state->wm_delete_window = XInternAtom(x11_state->display,
@@ -106,8 +102,8 @@ static void game_resize(GameState* game_state, u32 new_width, u32 new_height)
 
 static void x11_resize_window(X11State* x11_state, u32 new_width, u32 new_height)
 {
-    x11_state->window_width  = new_width;
-    x11_state->window_height = new_height;
+    x11_state->window_attributes.width  = new_width;
+    x11_state->window_attributes.height = new_height;
 }
 
 static void x11_handle_events(X11State* x11_state, GameState* game_state)
@@ -427,10 +423,12 @@ static void x11_handle_events(X11State* x11_state, GameState* game_state)
                 XConfigureEvent xce = e.xconfigure;
 
                 // Checking if window has been resized
-                if ((u32)xce.width != x11_state->window_width ||
-                    (u32)xce.height != x11_state->window_height) {
+                if ((u32)xce.width != x11_state->window_attributes.width ||
+                    (u32)xce.height != x11_state->window_attributes.height) {
                     x11_resize_window(x11_state, (u32)xce.width, (u32)xce.height);
-                    game_resize(game_state, x11_state->window_width, x11_state->window_height);
+                    game_resize(game_state,
+                                x11_state->window_attributes.width,
+                                x11_state->window_attributes.height);
                 } 
             } break;
         }
@@ -487,58 +485,55 @@ static f64 clock_now(void)
 /*     } */
 /* } */
 
-extern void game_update(GameState*, f64);
+/* extern void game_update(GameState*, f64); */
 
-int main(void)
+static X11State x11_state;
+
+void platform_init(GameState* game_state)
 {
-    fc_logger_init(fc_get_engine_logger(), "%TT (%Fn:%Fl) %CcFINCH%Cn [%Gl] ");
-    fc_logger_init(fc_get_application_logger(), "%TT (%Fn:%Fl) %CcAPPLICATION%Cn [%Gl] ");
-    
-    /* load_game_if_changed(); */
-    
-    X11State x11_state = {0};
-    x11_state.window_title  = "Finch";
-    x11_state.window_width  = 1280;
-    x11_state.window_height = 720;
+    WindowAttributes window_attributes = {
+        .title  = "Sandbox",
+        .width  = 1280,
+        .height = 720
+    };
+
+    x11_state.window_attributes = window_attributes;
     x11_init(&x11_state);
     
-    GameState game_state = {};
-    game_resize(&game_state, x11_state.window_width, x11_state.window_height);
+    game_resize(game_state,
+                x11_state.window_attributes.width,
+                x11_state.window_attributes.height);    
+}
 
-    f64 prev_time = clock_now();
-    
-    game_state.running = true;
-    while (game_state.running) {
-        /* load_game_if_changed(); */
-        f64 curr_time = clock_now();
-        f64 delta_time = curr_time - prev_time;
-        
-        x11_handle_events(&x11_state, &game_state);
-        /* (*game_update)(&game_state, delta_time); */
-        game_update(&game_state, delta_time);
-        x11_put_pixelbuffer_on_screen(&x11_state, &game_state);
-
-        // Update fps in window title approx. every second
-        x11_state.time_since_window_title_updated += delta_time;
-        if (x11_state.time_since_window_title_updated > 1.0f) {
-            char buf[1000];
-            sprintf(buf, "%s - %dfps", x11_state.window_title, (u32)(1.0 / delta_time));
-            XStoreName(x11_state.display, x11_state.window, buf);
-            x11_state.time_since_window_title_updated = 0.0f;
-        }
-
-        prev_time = curr_time;
-    }
-
-    // Program is finished, free resources and exit
-    
+void platform_deinit(GameState* game_state)
+{
     x11_deinit(&x11_state);
-    if (game_state.pixelbuffer) {
-        free(game_state.pixelbuffer);
+    if (game_state->pixelbuffer) {
+        free(game_state->pixelbuffer);
     }
-    
-    /* dlclose(sandbox_so); */
-    /* sandbox_so = NULL; */
-    
-    return EXIT_SUCCESS;
+}
+
+void platform_poll_events(GameState* game_state)
+{
+    x11_handle_events(&x11_state, game_state);
+}
+
+void platform_put_pixelbuffer_on_screen(GameState* game_state)
+{
+    x11_put_pixelbuffer_on_screen(&x11_state, game_state);
+}
+
+WindowAttributes* platform_get_window_attributes(void)
+{
+    return &x11_state.window_attributes;
+}
+
+f64 platform_get_epoch_time(void)
+{
+    return clock_now();
+}
+
+void platform_set_window_title(const char* title)
+{
+    XStoreName(x11_state.display, x11_state.window, title);
 }
