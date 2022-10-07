@@ -2,52 +2,18 @@
 #include "finch/core/core.h"
 #include "finch/log/log.h"
 
-#include <stdio.h>
 #include <math.h>
-#include <stdlib.h>
 
 static f32 time_elapsed_seconds;
 static f32 horizontal_offset;
 static f32 vertical_offset;
 static f32 velocity;
 
-static const char* keys[] = {
-    "none", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "0", "1", "3", "4", "5", "6", "7", "8", "9", "left_ctrl", "right_ctrl", "left_shift", "right_shift", "left_alt", "right_alt", "space", "tab", "esc", "enter", "backspace", "caps_lock", "up", "down", "left", "right", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12"
-};
-
-static const char* buttons[] = {
-    "None", "Left", "Right", "Middle"
-};
-
-extern int main(void);
-
 static void handle_game_events(ApplicationState* application_state)
 {
     while (application_state->unhandled_events) {
         FcEvent e = application_state->events[--application_state->unhandled_events];
-        switch (e.type) {
-            case FC_EVENT_TYPE_NONE: {
-                FC_FATAL("Game received event of type %CrNone%Cn");
-            } break;
-                
-            case FC_EVENT_TYPE_BUTTON_PRESSED: {
-                FC_INFO("%Cb%Vs%Cn mouse button pressed at %Cp(%Vu, %Vu)%Cn",
-                        buttons[e.button], e.mouse_x, e.mouse_y);
-            } break;
-                
-            case FC_EVENT_TYPE_BUTTON_RELEASED: {
-                FC_INFO("%Cb%Vs%Cn mouse button released at %Cp(%Vu, %Vu)%Cn",
-                        buttons[e.button], e.mouse_x, e.mouse_y);
-            } break;
-                
-            case FC_EVENT_TYPE_KEY_PRESSED: {
-                FC_INFO("Key pressed: %Cb%Vs%Cn", keys[e.key]);
-            } break;
-                
-            case FC_EVENT_TYPE_KEY_RELEASED: {
-                FC_INFO("Key released: %Cb%Vs%Cn", keys[e.key]);
-            } break;
-                
+        switch (e.type) {                
             case FC_EVENT_TYPE_WHEEL_SCROLLED: {
                 if (e.scroll_wheel_vertical_direction != 0) {
                     vertical_offset -= velocity * e.scroll_wheel_vertical_direction;
@@ -60,12 +26,9 @@ static void handle_game_events(ApplicationState* application_state)
                            e.scroll_wheel_horizontal_direction > 0 ? "right" : "left");
                 }
             } break;
-            case FC_EVENT_TYPE_MOUSE_MOVED: {
-            } break;
             default: {}
         }
     }
-
 }
 
 static u32 format_color(Color col)
@@ -86,10 +49,10 @@ void fc_application_init(ApplicationState* application_state)
 void fc_application_update(ApplicationState* application_state, f64 dt)
 {   
     handle_game_events(application_state);
+    
     InputState* input_state = &application_state->input_state;
     
     velocity = input_state->key_is_down[FC_KEY_SPACE] ? 500.0f : 250.0f;
-    
     if (input_state->key_is_down[FC_KEY_W]) {
         vertical_offset += velocity * dt;
     }
