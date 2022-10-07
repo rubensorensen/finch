@@ -4,19 +4,14 @@
 #include <X11/Xutil.h>
 #include <X11/Xos.h>
 
-#include "core.h"
-#include "events.h"
-#include "game.h"
+#include "finch/core/core.h"
+#include "finch/core/events.h"
+#include "finch/application/application.h"
 
-#include "log/log.h"
+#include "finch/log/log.h"
 
-#include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
-#include <string.h>
 #include <errno.h>
-#include <dlfcn.h>
-#include <sys/stat.h>
 
 typedef struct _X11State {
     Display *display;
@@ -67,37 +62,37 @@ static void x11_deinit(X11State* x11_state)
     XCloseDisplay(x11_state->display);
 }
 
-static void x11_put_pixelbuffer_on_screen(X11State* x11_state, GameState* game_state)
+static void x11_put_pixelbuffer_on_screen(X11State* x11_state, ApplicationState* application_state)
 {
     XWindowAttributes window_attributes;
     XGetWindowAttributes(x11_state->display, x11_state->window, &window_attributes);
     
     XImage* img = XCreateImage(x11_state->display,
                                window_attributes.visual, window_attributes.depth,
-                               ZPixmap, 0, (char*)game_state->pixelbuffer,
-                               game_state->width_px, game_state->height_px,
-                               32, game_state->width_px * sizeof(game_state->pixelbuffer[0]));
+                               ZPixmap, 0, (char*)application_state->pixelbuffer,
+                               application_state->width_px, application_state->height_px,
+                               32, application_state->width_px * sizeof(application_state->pixelbuffer[0]));
 
     XPutImage(x11_state->display, x11_state->window,
               x11_state->gc, img,
               0, 0,
               0, 0,
-              game_state->width_px,
-              game_state->height_px);
+              application_state->width_px,
+              application_state->height_px);
 }
 
-static void game_initialize_pixelbuffer(GameState* game_state) {
-    if (game_state->pixelbuffer != NULL) {
-        free(game_state->pixelbuffer);
+static void game_initialize_pixelbuffer(ApplicationState* application_state) {
+    if (application_state->pixelbuffer != NULL) {
+        free(application_state->pixelbuffer);
     }
-    game_state->pixelbuffer = (u32*)malloc(game_state->width_px * game_state->height_px * sizeof(u32));
+    application_state->pixelbuffer = (u32*)malloc(application_state->width_px * application_state->height_px * sizeof(u32));
 }
 
-static void game_resize(GameState* game_state, u32 new_width, u32 new_height)
+static void game_resize(ApplicationState* application_state, u32 new_width, u32 new_height)
 {
-    game_state->width_px  = new_width;
-    game_state->height_px = new_height;
-    game_initialize_pixelbuffer(game_state);
+    application_state->width_px  = new_width;
+    application_state->height_px = new_height;
+    game_initialize_pixelbuffer(application_state);
 }
 
 static void x11_resize_window(X11State* x11_state, u32 new_width, u32 new_height)
@@ -106,11 +101,11 @@ static void x11_resize_window(X11State* x11_state, u32 new_width, u32 new_height
     x11_state->window_attributes.height = new_height;
 }
 
-static void x11_handle_events(X11State* x11_state, GameState* game_state)
+static void x11_handle_events(X11State* x11_state, ApplicationState* application_state)
 {
-    game_state->unhandled_events = 0;
-    game_state->input_state.mouse_dx = 0;
-    game_state->input_state.mouse_dy = 0;
+    application_state->unhandled_events = 0;
+    application_state->input_state.mouse_dx = 0;
+    application_state->input_state.mouse_dy = 0;
     while (XPending(x11_state->display) > 0) {
         FcEvent finch_event = {0};
         
@@ -231,7 +226,7 @@ static void x11_handle_events(X11State* x11_state, GameState* game_state)
                 }
                 
                 finch_event.key = finch_key;
-                game_state->input_state.key_is_down[finch_key] = true;
+                application_state->input_state.key_is_down[finch_key] = true;
                 
             } break;
             case KeyRelease: {
@@ -304,7 +299,7 @@ static void x11_handle_events(X11State* x11_state, GameState* game_state)
                 }
                 
                 finch_event.key = finch_key;
-                game_state->input_state.key_is_down[finch_key] = false;
+                application_state->input_state.key_is_down[finch_key] = false;
                 
             } break;
             case ButtonPress: {
@@ -359,7 +354,7 @@ static void x11_handle_events(X11State* x11_state, GameState* game_state)
                 }
 
                 finch_event.button = finch_button;
-                game_state->input_state.button_is_down[finch_button] = true;
+                application_state->input_state.button_is_down[finch_button] = true;
                 
             } break;
             case ButtonRelease: {
@@ -392,32 +387,32 @@ static void x11_handle_events(X11State* x11_state, GameState* game_state)
                 }
 
                 finch_event.button = finch_button;
-                game_state->input_state.button_is_down[finch_button] = false;
+                application_state->input_state.button_is_down[finch_button] = false;
                 
             } break;
             case MotionNotify: {
                 finch_event.type = FC_EVENT_TYPE_MOUSE_MOVED;
                 
                 finch_event.mouse_x = e.xbutton.x;
-                game_state->input_state.mouse_dx +=
-                    (e.xbutton.x - game_state->input_state.mouse_x);
+                application_state->input_state.mouse_dx +=
+                    (e.xbutton.x - application_state->input_state.mouse_x);
                 
-                game_state->input_state.mouse_x = e.xmotion.x;
+                application_state->input_state.mouse_x = e.xmotion.x;
                 
                 finch_event.mouse_y = e.xbutton.y;
-                game_state->input_state.mouse_dy +=
-                    (e.xbutton.y - game_state->input_state.mouse_y);
+                application_state->input_state.mouse_dy +=
+                    (e.xbutton.y - application_state->input_state.mouse_y);
                 
-                game_state->input_state.mouse_y = e.xmotion.y;
+                application_state->input_state.mouse_y = e.xmotion.y;
                 
             } break;
             case ClientMessage: {
                 if ((Atom)e.xclient.data.l[0] == x11_state->wm_delete_window) {
-                    game_state->running = false;
+                    application_state->running = false;
                 }
             } break;
             case Expose: {
-                x11_put_pixelbuffer_on_screen(x11_state, game_state);
+                x11_put_pixelbuffer_on_screen(x11_state, application_state);
             } break;
             case ConfigureNotify: {
                 XConfigureEvent xce = e.xconfigure;
@@ -426,7 +421,7 @@ static void x11_handle_events(X11State* x11_state, GameState* game_state)
                 if ((u32)xce.width != x11_state->window_attributes.width ||
                     (u32)xce.height != x11_state->window_attributes.height) {
                     x11_resize_window(x11_state, (u32)xce.width, (u32)xce.height);
-                    game_resize(game_state,
+                    game_resize(application_state,
                                 x11_state->window_attributes.width,
                                 x11_state->window_attributes.height);
                 } 
@@ -435,8 +430,8 @@ static void x11_handle_events(X11State* x11_state, GameState* game_state)
 
         // Add event to game's event buffer if it is a finch event
         if (finch_event.type != FC_EVENT_TYPE_NONE &&
-            game_state->unhandled_events < MAX_EVENTS) {
-            game_state->events[game_state->unhandled_events++] = finch_event;
+            application_state->unhandled_events < MAX_EVENTS) {
+            application_state->events[application_state->unhandled_events++] = finch_event;
         }
     }
 }
@@ -451,76 +446,49 @@ static f64 clock_now(void)
     return (f64)(now.tv_sec + (now.tv_nsec / 1000) * 0.000001);
 }
 
-/* static void* sandbox_so; */
-/* static void (*game_update) (GameState*, f32); */
-/* static time_t sandbox_last_change; */
-
-/* static void load_game_if_changed(void) */
-/* { */
-/*     struct stat statbuf; */
-/*     if (stat("./libsandbox.so", &statbuf) < 0) { */
-/*         FC_ENGINE_FATAL("Could not read file stats from ./libsandbox.so: %s", */
-/*                 strerror(errno)); */
-/*     } */
-/*     time_t time = statbuf.st_mtime; */
-
-/*     if (time != sandbox_last_change) { */
-/*         sandbox_last_change = time; */
-/*         if (sandbox_so != NULL) { */
-/*             dlclose(sandbox_so); */
-/*             sandbox_so = NULL; */
-/*         } */
-
-/*         sandbox_so = dlopen("./libsandbox.so", RTLD_LAZY); */
-/*         if (sandbox_so == NULL) { */
-/*             FC_ENGINE_FATAL("Could not open /tmp/libsandbox.so: %s", */
-/*                     dlerror()); */
-/*         } */
-    
-/*         game_update = dlsym(sandbox_so, "game_update"); */
-/*         if (game_update == NULL) { */
-/*             FC_ENGINE_FATAL("Could not load game_update function from /tmp/libsandbox.so: %s", */
-/*                     dlerror()); */
-/*         } */
-/*     } */
-/* } */
-
-/* extern void game_update(GameState*, f64); */
-
 static X11State x11_state;
 
-void platform_init(GameState* game_state)
+void platform_init(ApplicationState* application_state)
 {
+    char* game_name = application_state->name != NULL
+        ? application_state->name
+        : "Finch Application";
+    u32 game_width = application_state->width_px > 0
+        ? application_state->width_px
+        : 1280;
+    u32 game_height = application_state->height_px > 0
+        ? application_state->height_px
+        : 720;
     WindowAttributes window_attributes = {
-        .title  = "Sandbox",
-        .width  = 1280,
-        .height = 720
+        .title  = game_name,
+        .width  = game_width,
+        .height = game_height
     };
 
     x11_state.window_attributes = window_attributes;
     x11_init(&x11_state);
     
-    game_resize(game_state,
+    game_resize(application_state,
                 x11_state.window_attributes.width,
                 x11_state.window_attributes.height);    
 }
 
-void platform_deinit(GameState* game_state)
+void platform_deinit(ApplicationState* application_state)
 {
     x11_deinit(&x11_state);
-    if (game_state->pixelbuffer) {
-        free(game_state->pixelbuffer);
+    if (application_state->pixelbuffer) {
+        free(application_state->pixelbuffer);
     }
 }
 
-void platform_poll_events(GameState* game_state)
+void platform_poll_events(ApplicationState* application_state)
 {
-    x11_handle_events(&x11_state, game_state);
+    x11_handle_events(&x11_state, application_state);
 }
 
-void platform_put_pixelbuffer_on_screen(GameState* game_state)
+void platform_put_pixelbuffer_on_screen(ApplicationState* application_state)
 {
-    x11_put_pixelbuffer_on_screen(&x11_state, game_state);
+    x11_put_pixelbuffer_on_screen(&x11_state, application_state);
 }
 
 WindowAttributes* platform_get_window_attributes(void)

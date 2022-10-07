@@ -1,9 +1,9 @@
-#ifndef FINCH_GAME_H
-#define FINCH_GAME_H
+#ifndef FINCH_APPLICATION_APPLICATION_H
+#define FINCH_APPLICATION_APPLICATION_H
 
-#include "events.h"
+#include "finch/core/events.h"
 
-#define MAX_EVENTS 1000
+#define MAX_EVENTS 1024
 
 typedef union _Color {
     u32 packed;
@@ -19,7 +19,8 @@ typedef struct _InputState {
     s32 mouse_dx, mouse_dy;
 } InputState;
 
-typedef struct _GameState {
+typedef struct _ApplicationState {
+    char* name;
     u32  width_px;
     u32  height_px;
     int  running; 
@@ -28,6 +29,11 @@ typedef struct _GameState {
     InputState input_state;
     FcEvent events[MAX_EVENTS];
     u32 unhandled_events;
-} GameState;
+} ApplicationState;
 
-#endif // FINCH_GAME_H
+// Implemented by application
+void fc_application_init(ApplicationState*);
+void fc_application_update(ApplicationState*, f64);
+void fc_application_deinit(ApplicationState*);
+
+#endif // FINCH_APPLICATION_APPLICATION_H

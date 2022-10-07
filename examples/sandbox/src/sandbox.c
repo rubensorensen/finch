@@ -1,5 +1,5 @@
-#include "finch/game.h"
-#include "finch/core.h"
+#include "finch/application/application.h"
+#include "finch/core/core.h"
 #include "finch/log/log.h"
 
 #include <stdio.h>
@@ -21,10 +21,10 @@ static const char* buttons[] = {
 
 extern int main(void);
 
-static void handle_game_events(GameState* game_state)
+static void handle_game_events(ApplicationState* application_state)
 {
-    while (game_state->unhandled_events) {
-        FcEvent e = game_state->events[--game_state->unhandled_events];
+    while (application_state->unhandled_events) {
+        FcEvent e = application_state->events[--application_state->unhandled_events];
         switch (e.type) {
             case FC_EVENT_TYPE_NONE: {
                 FC_FATAL("Game received event of type %CrNone%Cn");
@@ -76,11 +76,17 @@ static u32 format_color(Color col)
                  col.b << 0);
 }
 
+void fc_application_init(ApplicationState* application_state)
+{
+    application_state->name = "Sandbox";
+    application_state->width_px = 1280;
+    application_state->height_px = 720;
+}
 
-void game_update(GameState* game_state, f64 dt)
+void fc_application_update(ApplicationState* application_state, f64 dt)
 {   
-    handle_game_events(game_state);
-    InputState* input_state = &game_state->input_state;
+    handle_game_events(application_state);
+    InputState* input_state = &application_state->input_state;
     
     velocity = input_state->key_is_down[FC_KEY_SPACE] ? 500.0f : 250.0f;
     
@@ -104,10 +110,10 @@ void game_update(GameState* game_state, f64 dt)
     }
     
     // Rendering
-    for (u32 j = 0; j < game_state->height_px; ++j) {
-        for (u32 i = 0; i < game_state->width_px; ++i) {
-            f32 u = i / (f32)game_state->width_px;
-            f32 v = j / (f32)game_state->height_px;
+    for (u32 j = 0; j < application_state->height_px; ++j) {
+        for (u32 i = 0; i < application_state->width_px; ++i) {
+            f32 u = i / (f32)application_state->width_px;
+            f32 v = j / (f32)application_state->height_px;
 
             Color col = {0};
             col.r = (sinf(powf(u, v) * time_elapsed_seconds * 2.5f) + 1) / 2.0f * 255.0f;
@@ -117,9 +123,14 @@ void game_update(GameState* game_state, f64 dt)
             col.g = (u8)j - vertical_offset;
             col.a = 0xFFu;            
 
-            game_state->pixelbuffer[i + j * game_state->width_px] = format_color(col);
+            application_state->pixelbuffer[i + j * application_state->width_px] = format_color(col);
         }
     }
     
     time_elapsed_seconds += dt;
+}
+
+void fc_application_deinit(ApplicationState* application_state)
+{
+    (void)application_state;
 }

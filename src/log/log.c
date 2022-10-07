@@ -1,4 +1,4 @@
-#include "log/log.h"
+#include "finch/log/log.h"
 
 #include <stdio.h>
 #include <stdlib.h>
