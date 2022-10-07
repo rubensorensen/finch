@@ -18,8 +18,6 @@
 #include <dlfcn.h>
 #include <sys/stat.h>
 
-static LgLogger logger;
-
 typedef struct _X11State {
     Display *display;
     int      screen;
@@ -38,7 +36,7 @@ static void x11_init(X11State* x11_state)
 {
     x11_state->display = XOpenDisplay(NULL);
     if (x11_state->display == NULL) {
-        LG_FATAL(&logger, "Could not open default display.");
+        FC_ENGINE_FATAL("Could not open default display.");
     }
 
     x11_state->screen = DefaultScreen(x11_state->display);
@@ -228,8 +226,8 @@ static void x11_handle_events(X11State* x11_state, GameState* game_state)
                         } break;
                         default: {
                             // Unhandled key
-                            LG_WARN(&logger, "Unhandled key press event (Key: %Vd)",
-                                    key);
+                            FC_ENGINE_WARN("Unhandled key press event (Key: %Vd)",
+                                           key);
                             finch_event.type = FC_EVENT_TYPE_NONE;
                             finch_key = FC_KEY_NONE;
                         }
@@ -449,7 +447,7 @@ static f64 clock_now(void)
 {
     struct timespec now;
     if (clock_gettime(CLOCK_MONOTONIC, &now) < 0) {
-        LG_FATAL(&logger, "Could not get current monotonic time: %s",
+        FC_ENGINE_FATAL("Could not get current monotonic time: %s",
                 strerror(errno));
     }
     return (f64)(now.tv_sec + (now.tv_nsec / 1000) * 0.000001);
@@ -463,7 +461,7 @@ static f64 clock_now(void)
 /* { */
 /*     struct stat statbuf; */
 /*     if (stat("./libsandbox.so", &statbuf) < 0) { */
-/*         LG_FATAL(&logger, "Could not read file stats from ./libsandbox.so: %s", */
+/*         FC_ENGINE_FATAL("Could not read file stats from ./libsandbox.so: %s", */
 /*                 strerror(errno)); */
 /*     } */
 /*     time_t time = statbuf.st_mtime; */
@@ -477,15 +475,14 @@ static f64 clock_now(void)
 
 /*         sandbox_so = dlopen("./libsandbox.so", RTLD_LAZY); */
 /*         if (sandbox_so == NULL) { */
-/*             LG_FATAL(&logger, "Could not open /tmp/libsandbox.so: %s", */
+/*             FC_ENGINE_FATAL("Could not open /tmp/libsandbox.so: %s", */
 /*                     dlerror()); */
 /*         } */
     
 /*         game_update = dlsym(sandbox_so, "game_update"); */
 /*         if (game_update == NULL) { */
-/*             LG_FATAL(&logger, "Could not load game_update function from /tmp/libsandbox.so: %s", */
+/*             FC_ENGINE_FATAL("Could not load game_update function from /tmp/libsandbox.so: %s", */
 /*                     dlerror()); */
-/*             exit(EXIT_FAILURE); */
 /*         } */
 /*     } */
 /* } */
@@ -494,7 +491,8 @@ extern void game_update(GameState*, f64);
 
 int main(void)
 {
-    loggy_init(&logger, "%TT (%Fn:%Fl) %CcFINCH%Cn [%Gl] ");
+    loggy_init(fc_get_engine_logger(), "%TT (%Fn:%Fl) %CcFINCH%Cn [%Gl] ");
+    loggy_init(fc_get_application_logger(), "%TT (%Fn:%Fl) %CcAPPLICATION%Cn [%Gl] ");
     
     /* load_game_if_changed(); */
     
@@ -505,7 +503,6 @@ int main(void)
     x11_init(&x11_state);
     
     GameState game_state = {};
-    loggy_init(&game_state.logger, "%TT (%Fn:%Fl) %CcSANDBOX%Cn [%Gl] ");
     game_resize(&game_state, x11_state.window_width, x11_state.window_height);
 
     f64 prev_time = clock_now();
