@@ -67,7 +67,7 @@ void fc_application_update(ApplicationState* application_state, f64 dt)
         horizontal_offset -= velocity * dt;
     }
     if (input_state->button_is_down[FC_BUTTON_LEFT]) {
-        FC_INFO("dx: %Vd, \tdy: %Vd",
+        FC_INFO("dx: %Vd, dy: %Vd",
                 input_state->mouse_dx, input_state->mouse_dy);
         horizontal_offset += input_state->mouse_dx;
         vertical_offset   += input_state->mouse_dy;

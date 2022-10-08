@@ -5,7 +5,7 @@ source scripts/color_support.sh
 CC=gcc
 CFLAGS="-Wall -Wextra -std=c11 -O0 -ggdb"
 
-INCLUDE_PATH="-I include/ -I include/finch/ -I extern/loggy/include"
+INCLUDE_PATH="-I include/"
 SOURCE_PATH="src/"
 LIBS="$(pkg-config --cflags --libs x11) -lm -ldl"
 
