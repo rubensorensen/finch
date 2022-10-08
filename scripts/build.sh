@@ -3,7 +3,7 @@
 source scripts/color_support.sh
 
 CC=gcc
-CFLAGS="-Wall -Wextra -std=c11 -O2 -ggdb"
+CFLAGS="-Wall -Wextra -std=c11 -O0 -ggdb"
 
 INCLUDE_PATH="-I include/ -I include/finch/ -I extern/loggy/include"
 SOURCE_PATH="src/"

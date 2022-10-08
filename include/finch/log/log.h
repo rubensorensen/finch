@@ -31,7 +31,7 @@ typedef struct FcLogger_ {
 
 void fc_logger_init(FcLogger* logger, char* format);
 void fc_logger_log(FcLogger* logger, FcLogLevel level,
-                   const char* file, int line, const char* fmt, ...);
+                   char* file, int line, const char* fmt, ...);
 
 FcLogger* fc_get_engine_logger();
 FcLogger* fc_get_application_logger();

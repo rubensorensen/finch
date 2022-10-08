@@ -5,6 +5,7 @@
 #include <X11/Xos.h>
 
 #include "finch/core/core.h"
+#include "finch/core/utils.h"
 #include "finch/core/events.h"
 #include "finch/application/application.h"
 
@@ -504,4 +505,54 @@ f64 platform_get_epoch_time(void)
 void platform_set_window_title(const char* title)
 {
     XStoreName(x11_state.display, x11_state.window, title);
+}
+
+void platform_write_to_stdout(char* str)
+{
+    write(STDOUT_FILENO, str, string_length_null_terminated(str));
+}
+
+void platform_write_to_stderr(char* str)
+{
+    write(STDERR_FILENO, str, string_length_null_terminated(str));
+}
+
+b32 platform_terminal_supports_colors()
+{
+    int fd[2];
+    if (pipe(fd) < 0) {
+        return false;
+    };
+
+    pid_t pid = fork();
+    if (pid < 0) {
+        return false;
+    }
+    
+    if (pid == 0) {
+        // Child
+        close(fd[0]);
+        if (dup2(fd[1], STDOUT_FILENO) < 0) {
+            return false;
+        }
+        close(fd[1]);
+        if (execl("/bin/tput", "/bin/tput", "colors", NULL) < 0) {
+            return false;
+        }
+    }
+
+    close(fd[1]);
+    char buf[100];
+    while (read(fd[0], buf, sizeof(buf)) != 0) {};
+    return (atoi(buf) == 256);
+}
+
+b32 platform_stdout_is_terminal()
+{
+    return isatty(STDOUT_FILENO) == 1;
+}
+
+b32 platform_stderr_is_terminal()
+{
+    return isatty(STDERR_FILENO) == 1;
 }
