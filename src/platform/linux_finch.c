@@ -5,7 +5,7 @@
 #include <X11/Xos.h>
 
 #include "finch/core/core.h"
-#include "finch/core/utils.h"
+#include "finch/utils/string.h"
 #include "finch/core/events.h"
 #include "finch/application/application.h"
 

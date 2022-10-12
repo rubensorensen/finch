@@ -1,14 +1,6 @@
-#include "finch/core/utils.h"
+#include "finch/utils/string.h"
+#include "finch/utils/utils.h"
 #include "finch/log/log.h"
-
-#include <math.h>
-
-void swap_char(char* a, char* b)
-{
-    char temp = *a;
-    *a = *b;
-    *b = temp;
-}
 
 u32 string_length_null_terminated(char* str)
 {
@@ -20,20 +12,20 @@ u32 string_length_null_terminated(char* str)
     return length;
 }
 
-void reverse_string(char* str, u32 length)
+void string_reverse(char* str, u32 length)
 {
     for (u32 i = 0; i < length / 2; ++i) {
         swap_char((str + i), (str + length - i - 1));
     }
 }
 
-void reverse_string_null_terminated(char* str)
+void string_reverse_null_terminated(char* str)
 {
     u32 length = string_length_null_terminated(str);
-    reverse_string(str, length);
+    string_reverse(str, length);
 }
 
-u32 s64_to_null_terminated_string(s64 number, char* buf, u32 buf_size, u16 base)
+u32 s64_to_string_null_terminated(s64 number, char* buf, u32 buf_size, u16 base)
 {
     if (buf_size < 2) {
         FC_ENGINE_FATAL("Buffer size must be at least 2");
@@ -64,12 +56,12 @@ u32 s64_to_null_terminated_string(s64 number, char* buf, u32 buf_size, u16 base)
     }
  
     buf[length] = '\0';
-    reverse_string_null_terminated(buf);
+    string_reverse_null_terminated(buf);
  
     return length;
 }
 
-u32 u64_to_null_terminated_string(u64 number, char* buf, u32 buf_size, u16 base)
+u32 u64_to_string_null_terminated(u64 number, char* buf, u32 buf_size, u16 base)
 {
     if (buf_size < 2) {
         FC_ENGINE_FATAL("Buffer size must be at least 2");
@@ -90,7 +82,7 @@ u32 u64_to_null_terminated_string(u64 number, char* buf, u32 buf_size, u16 base)
     }
  
     buf[length] = '\0';
-    reverse_string_null_terminated(buf);
+    string_reverse_null_terminated(buf);
  
     return length;
 }
@@ -110,7 +102,10 @@ char* string_copy(char* dest, char* src)
     return ptr;
 }
 
-char* f64_to_null_terminated_string(f64 number, char* buf, u32 buf_size, u32 num_decimals) {
+
+// TODO: Remove dependency on libc math
+#include "math.h"
+char* f64_to_string_null_terminated(f64 number, char* buf, u32 buf_size, u32 num_decimals) {
     char* s = buf + buf_size;
     *--s = '\0';
     s32 k = pow(10, num_decimals);

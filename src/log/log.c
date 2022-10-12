@@ -1,7 +1,7 @@
 #include "finch/log/log.h"
 #include "finch/core/core.h"
-#include "finch/core/utils.h"
 #include "finch/platform/platform.h"
+#include "finch/utils/string.h"
 
 #include <stdlib.h>
 #include <stdarg.h>
@@ -183,7 +183,7 @@ static void format_msg(char* dest, FcLogger* logger, FcLogLevel level,
                             
                         // Line number
                     case 'l': {
-                        u64_to_null_terminated_string(line, temp, 1024, 10);
+                        u64_to_string_null_terminated(line, temp, 1024, 10);
                         string_copy(dest + j, temp);
                         j += string_length_null_terminated(temp);
                     } break;
@@ -215,23 +215,23 @@ static void format_msg(char* dest, FcLogger* logger, FcLogLevel level,
 
                 switch (thing) {
                     case 'd': {
-                        s64_to_null_terminated_string(va_arg(args, s32),
+                        s64_to_string_null_terminated(va_arg(args, s32),
                                                       temp, 1024, 10);
                     } break;
                     case 'u': {
-                        u64_to_null_terminated_string(va_arg(args, u32),
+                        u64_to_string_null_terminated(va_arg(args, u32),
                                                       temp, 1024, 10);
                     } break;
                     case 'x': {
-                        u64_to_null_terminated_string(va_arg(args, u32),
+                        u64_to_string_null_terminated(va_arg(args, u32),
                                                       temp, 1024, 16);
                     } break;
                     case 'b': {
-                        u64_to_null_terminated_string(va_arg(args, u32),
+                        u64_to_string_null_terminated(va_arg(args, u32),
                                                       temp, 1024, 2);
                     } break;
                     case 'f': {
-                        f64_to_null_terminated_string(va_arg(args, f64),
+                        f64_to_string_null_terminated(va_arg(args, f64),
                                                       temp, 1024, 5);
                     } break;
                     case 'c': {
@@ -244,7 +244,7 @@ static void format_msg(char* dest, FcLogger* logger, FcLogLevel level,
                     case 'p': {
                         temp[0] = '0';
                         temp[1] = 'x';
-                        u64_to_null_terminated_string(va_arg(args, u64),
+                        u64_to_string_null_terminated(va_arg(args, u64),
                                                       temp + 2, 1024, 16);
                     } break;
                     default: {
