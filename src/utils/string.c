@@ -1,6 +1,9 @@
 #include "finch/utils/string.h"
 #include "finch/utils/utils.h"
 #include "finch/log/log.h"
+#include "finch/platform/platform.h"
+
+#include <stdlib.h>
 
 u32 string_length_null_terminated(char* str)
 {
@@ -28,7 +31,8 @@ void string_reverse_null_terminated(char* str)
 u32 s64_to_string_null_terminated(s64 number, char* buf, u32 buf_size, u16 base)
 {
     if (buf_size < 2) {
-        FC_ENGINE_FATAL("Buffer size must be at least 2");
+        FC_ENGINE_ERROR("Buffer size must be at least 2");
+        exit(EXIT_FAILURE);
     }
     
     u32 length = 0;
@@ -64,7 +68,8 @@ u32 s64_to_string_null_terminated(s64 number, char* buf, u32 buf_size, u16 base)
 u32 u64_to_string_null_terminated(u64 number, char* buf, u32 buf_size, u16 base)
 {
     if (buf_size < 2) {
-        FC_ENGINE_FATAL("Buffer size must be at least 2");
+        FC_ENGINE_ERROR("Buffer size must be at least 2");
+        exit(EXIT_FAILURE);
     }
     
     u32 length = 0;
@@ -134,4 +139,80 @@ char* f64_to_string_null_terminated(f64 number, char* buf, u32 buf_size, u32 num
     string_copy(buf, s);
     
     return buf;
+}
+
+
+u32 string_format(char* dest, u32 max_size, const char* fmt, ...)
+{
+    char temp[1024] = {0};
+    u32 i = 0, j = 0;
+
+    va_list args;
+    va_start(args, fmt);
+        
+    while (fmt && fmt[i] && j < max_size - 1) {
+
+        // If character is not a '%', treat no formatting is necessary
+        if (fmt[i] != '%') {
+            dest[j++] = fmt[i++];
+            continue;
+        }
+    
+        // Character is '%', formatting is necessary
+        i += 1;
+        switch (fmt[i]) {
+            case '%': {
+                dest[j++] = fmt[i++];
+            } break;
+            case 'd': {
+                s64_to_string_null_terminated(va_arg(args, s32),
+                                              temp, 1024, 10);
+            } break;
+            case 'u': {
+                u64_to_string_null_terminated(va_arg(args, u32),
+                                              temp, 1024, 10);
+            } break;
+            case 'x': {
+                u64_to_string_null_terminated(va_arg(args, u32),
+                                              temp, 1024, 16);
+            } break;
+            case 'b': {
+                u64_to_string_null_terminated(va_arg(args, u32),
+                                              temp, 1024, 2);
+            } break;
+            case 'f': {
+                f64_to_string_null_terminated(va_arg(args, f64),
+                                              temp, 1024, 5);
+            } break;
+            case 'c': {
+                temp[0] = (char)va_arg(args, s32);
+                temp[1] = '\0';
+            } break;
+            case 's': {
+                string_copy(temp, va_arg(args, char*));
+            } break;
+            case 'p': {
+                temp[0] = '0';
+                temp[1] = 'x';
+                u64_to_string_null_terminated(va_arg(args, u64),
+                                              temp + 2, 1024, 16);
+            } break;
+            default: {
+                string_format(temp, 1024,
+                              "Logger: Unrecognized format option: '%c'\n", fmt[i]);
+                platform_write_to_stderr(temp);
+                temp[0] = '?';
+                temp[1] = '\0';
+            }
+        }
+        
+        string_copy(dest + j, temp);
+        j += string_length_null_terminated(temp);
+        i += 1;
+    }
+
+    dest[j] = '\0';
+    va_end(args);
+
+    return j;
 }

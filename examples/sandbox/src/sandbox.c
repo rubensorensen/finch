@@ -1,6 +1,8 @@
 #include "finch/application/application.h"
 #include "finch/core/core.h"
 #include "finch/log/log.h"
+#include "finch/utils/string.h"
+#include "finch/platform/platform.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -22,12 +24,12 @@ static void handle_game_events(ApplicationState* application_state)
             case FC_EVENT_TYPE_WHEEL_SCROLLED: {
                 if (e.scroll_wheel_vertical_direction != 0) {
                     app_data->vertical_offset -= app_data->velocity * e.scroll_wheel_vertical_direction;
-                    FC_INFO("Mouse wheel scrolled %Cb%Vs%Cn",
+                    FC_INFO("Mouse wheel scrolled %s",
                            e.scroll_wheel_vertical_direction > 0 ? "up" : "down");
                 }
                 if (e.scroll_wheel_horizontal_direction != 0) {
                     app_data->horizontal_offset -= app_data->velocity * -e.scroll_wheel_horizontal_direction;
-                    FC_INFO("Mouse wheel scrolled %Cb%Vs%Cn",
+                    FC_INFO("Mouse wheel scrolled %s",
                            e.scroll_wheel_horizontal_direction > 0 ? "right" : "left");
                 }
             } break;
@@ -55,6 +57,11 @@ void fc_application_init(ApplicationState* application_state)
     application_state->name = "Sandbox";
     application_state->width_px = 1280;
     application_state->height_px = 720;
+
+    FC_TRACE("This is a trace!");
+    FC_INFO("This is info!");
+    FC_WARN("This is a warning!");
+    FC_ERROR("This is an error!");
 }
 
 void fc_application_update(ApplicationState* application_state, f64 dt)
@@ -77,8 +84,7 @@ void fc_application_update(ApplicationState* application_state, f64 dt)
         app_data->horizontal_offset -= app_data->velocity * dt;
     }
     if (input_state->button_is_down[FC_BUTTON_LEFT]) {
-        FC_INFO("dx: %Vd, dy: %Vd",
-                input_state->mouse_dx, input_state->mouse_dy);
+        FC_INFO("dx: %d, dy: %d", input_state->mouse_dx, input_state->mouse_dy);
         app_data->horizontal_offset += input_state->mouse_dx;
         app_data->vertical_offset   += input_state->mouse_dy;
     }

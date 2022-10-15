@@ -8,9 +8,6 @@
 
 int main(void)
 {
-    fc_logger_init(fc_get_engine_logger(), "%TT (%Fn:%Fl) %CcFINCH%Cn [%Gl] ");
-    fc_logger_init(fc_get_application_logger(), "%TT (%Fn:%Fl) %CcAPPLICATION%Cn [%Gl] ");
-
     ApplicationState application_state = {0};
     fc_application_init(&application_state);
     platform_init(&application_state);

@@ -14,6 +14,8 @@
 #include <stdlib.h>
 #include <errno.h>
 
+static s32 terminal_supports_colors = -1;
+
 typedef struct _X11State {
     Display *display;
     int      screen;
@@ -28,7 +30,8 @@ static void x11_init(X11State* x11_state)
 {
     x11_state->display = XOpenDisplay(NULL);
     if (x11_state->display == NULL) {
-        FC_ENGINE_FATAL("Could not open default display.");
+        FC_ENGINE_ERROR("Could not open default display.");
+        exit(EXIT_FAILURE);
     }
 
     x11_state->screen = DefaultScreen(x11_state->display);
@@ -218,7 +221,7 @@ static void x11_handle_events(X11State* x11_state, ApplicationState* application
                         } break;
                         default: {
                             // Unhandled key
-                            FC_ENGINE_WARN("Unhandled key press event (Key: %Vd)",
+                            FC_ENGINE_WARN("Unhandled key press event (Key: %d)",
                                            key);
                             finch_event.type = FC_EVENT_TYPE_NONE;
                             finch_key = FC_KEY_NONE;
@@ -441,8 +444,9 @@ static f64 clock_now(void)
 {
     struct timespec now;
     if (clock_gettime(CLOCK_MONOTONIC, &now) < 0) {
-        FC_ENGINE_FATAL("Could not get current monotonic time: %s",
+        FC_ENGINE_ERROR("Could not get current monotonic time: %s",
                 strerror(errno));
+        exit(EXIT_FAILURE);
     }
     return (f64)(now.tv_sec + (now.tv_nsec / 1000) * 0.000001);
 }
@@ -555,4 +559,28 @@ b32 platform_stdout_is_terminal()
 b32 platform_stderr_is_terminal()
 {
     return isatty(STDERR_FILENO) == 1;
+}
+
+void platform_set_terminal_color(FcTerminalColor color) {
+    if (terminal_supports_colors == -1) {
+        terminal_supports_colors =
+            platform_stdout_is_terminal() && platform_terminal_supports_colors();
+    }
+
+    if (terminal_supports_colors) {
+        switch (color) {
+            case FC_TERM_COLOR_WHITE: {
+                platform_write_to_stdout("\033[0m");
+            } break;
+            case FC_TERM_COLOR_GREEN: {
+                platform_write_to_stdout("\033[32m");
+            } break;
+            case FC_TERM_COLOR_ORANGE: {
+                platform_write_to_stdout("\033[33m");
+            } break;
+            case FC_TERM_COLOR_RED: {
+                platform_write_to_stdout("\033[31m");
+            } break;
+        }
+    }
 }
