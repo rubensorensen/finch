@@ -15,6 +15,8 @@ static VkImage                  vulkan_swap_chain_images[100];
 static u32                      vulkan_swap_chain_images_count;
 static VkFormat                 vulkan_swap_chain_image_format;
 static VkExtent2D               vulkan_swap_chain_extent;
+static VkImageView              vulkan_swap_chain_image_views[100];
+static u32                      vulkan_swap_chain_image_views_count;
 static VkDebugUtilsMessengerEXT vulkan_debug_messenger;
 
 static const char* instance_extensions[] = {
@@ -527,6 +529,38 @@ static void vulkan_create_swap_chain(X11State* x11_state)
     vulkan_swap_chain_extent       = extent;
 }
 
+static void vulkan_create_image_views(void)
+{
+    vulkan_swap_chain_image_views_count = vulkan_swap_chain_images_count;
+    
+    for (u32 i = 0; i < vulkan_swap_chain_images_count; ++i) {
+        VkImageViewCreateInfo create_info = {0};
+        create_info.sType    = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        create_info.image    = vulkan_swap_chain_images[i];
+        create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        create_info.format   = vulkan_swap_chain_image_format;
+        
+        create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+        create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+        create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+        create_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+
+        create_info.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+        create_info.subresourceRange.baseMipLevel   = 0;
+        create_info.subresourceRange.levelCount     = 1;
+        create_info.subresourceRange.baseArrayLayer = 0;
+        create_info.subresourceRange.layerCount     = 1;
+
+        VkResult result = vkCreateImageView(vulkan_device, &create_info,
+                                            NULL, &vulkan_swap_chain_image_views[i]);
+        if (result != VK_SUCCESS) {
+            char buf[1024];
+            vulkan_result_to_string(buf, result);
+            FC_ERROR("Failed to create image view: %s", buf);
+        }
+    }
+}
+
 static b32 vulkan_is_device_suitable(VkPhysicalDevice device)
 {
     VulkanQueueFamilyIndices indices = vulkan_find_queue_families(device);
@@ -663,6 +697,7 @@ void x11_vulkan_init(X11State* x11_state)
     vulkan_pick_physical_device();
     vulkan_create_logical_device();
     vulkan_create_swap_chain(x11_state);
+    vulkan_create_image_views();
     FC_INFO("Vulkan initialized");
 }
 
@@ -671,6 +706,11 @@ void x11_vulkan_deinit(X11State* x11_state)
     FC_INFO("Deinitializing Vulkan");
     (void)x11_state;
     destroy_debug_utils_messenger_EXT(vulkan_instance, vulkan_debug_messenger, NULL);
+
+    for (u32 i = 0; i < vulkan_swap_chain_image_views_count; ++i) {
+        vkDestroyImageView(vulkan_device, vulkan_swap_chain_image_views[i], NULL);
+    }
+        
     vkDestroySwapchainKHR(vulkan_device, vulkan_swap_chain, NULL);
     vkDestroyDevice(vulkan_device, NULL);
     vkDestroySurfaceKHR(vulkan_instance, vulkan_surface, NULL);
