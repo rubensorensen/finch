@@ -57,11 +57,6 @@ void fc_application_init(ApplicationState* application_state)
     application_state->name = "Sandbox";
     application_state->width_px = 1280;
     application_state->height_px = 720;
-
-    FC_TRACE("This is a trace!");
-    FC_INFO("This is info!");
-    FC_WARN("This is a warning!");
-    FC_ERROR("This is an error!");
 }
 
 void fc_application_update(ApplicationState* application_state, f64 dt)

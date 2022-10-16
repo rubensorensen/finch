@@ -1,9 +1,5 @@
 #define _POSIX_C_SOURCE 199309L
 
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
-#include <X11/Xos.h>
-
 #include "finch/core/core.h"
 #include "finch/utils/string.h"
 #include "finch/core/events.h"
@@ -14,17 +10,10 @@
 #include <stdlib.h>
 #include <errno.h>
 
+#include "linux_finch.h"
+#include "linux_vulkan.h"
+
 static s32 terminal_supports_colors = -1;
-
-typedef struct _X11State {
-    Display *display;
-    int      screen;
-    Window   window;
-    GC       gc;
-    Atom     wm_delete_window;
-
-    WindowAttributes window_attributes;
-} X11State;
 
 static void x11_init(X11State* x11_state)
 {
@@ -475,11 +464,14 @@ void platform_init(ApplicationState* application_state)
     
     game_resize(application_state,
                 x11_state.window_attributes.width,
-                x11_state.window_attributes.height);    
+                x11_state.window_attributes.height);
+
+    x11_vulkan_init(&x11_state);
 }
 
 void platform_deinit(ApplicationState* application_state)
 {
+    x11_vulkan_deinit(&x11_state);
     x11_deinit(&x11_state);
     if (application_state->pixelbuffer) {
         free(application_state->pixelbuffer);

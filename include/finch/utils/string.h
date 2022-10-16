@@ -8,6 +8,7 @@
 u32   string_length_null_terminated(char* str);
 void  string_reverse(char* str, u32 length);
 void  string_reverse_null_terminated(char* str);
+b32   string_compare(char* str1, char* str2);
 u32   s64_to_string_null_terminated(s64 number, char* buf, u32 buf_size, u16 base);
 u32   u64_to_string_null_terminated(u64 number, char* buf, u32 buf_size, u16 base);
 char* string_copy(char* dest, char* src);

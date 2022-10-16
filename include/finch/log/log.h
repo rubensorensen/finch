@@ -1,4 +1,5 @@
 #include "finch/core/core.h"
+#include "finch/utils/string.h"
 
 #ifndef FINCH_LOG_LOG_H
 #define FINCH_LOG_LOG_H

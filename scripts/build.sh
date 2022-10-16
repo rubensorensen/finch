@@ -7,7 +7,7 @@ CFLAGS="-Wall -Wextra -std=c11 -O0 -ggdb"
 
 INCLUDE_PATH="-I include/"
 SOURCE_PATH="src/"
-LIBS="$(pkg-config --cflags --libs x11) -lm -ldl"
+LIBS="$(pkg-config --cflags --libs x11) $(pkg-config --cflags --libs vulkan) -lm -ldl"
 
 BUILD_PATH="build/"
 BIN_PATH=$BUILD_PATH"/bin/"

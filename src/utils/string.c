@@ -107,6 +107,23 @@ char* string_copy(char* dest, char* src)
     return ptr;
 }
 
+b32 string_compare(char* str1, char* str2) {
+    u32 str1_len = string_length_null_terminated(str1);
+    u32 str2_len = string_length_null_terminated(str2);
+    
+    if (str1_len != str2_len) {
+        return false;
+    }
+
+    for (u32 i = 0; i < str1_len; ++i) {
+        if (str1[i] != str2[i]) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 
 // TODO: Remove dependency on libc math
 #include "math.h"
