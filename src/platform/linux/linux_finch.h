@@ -17,4 +17,6 @@ typedef struct _X11State {
     WindowAttributes window_attributes;
 } X11State;
 
+void x11_get_framebuffer_size(X11State* x11_state, u32* width, u32* height);
+
 #endif // LINUX_FINCH_H

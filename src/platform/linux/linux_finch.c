@@ -55,6 +55,21 @@ static void x11_deinit(X11State* x11_state)
     XCloseDisplay(x11_state->display);
 }
 
+void x11_get_framebuffer_size(X11State* x11_state, u32* width, u32* height)
+{
+    
+    XWindowAttributes window_attributes;
+    XGetWindowAttributes(x11_state->display, x11_state->window, &window_attributes);
+
+    if (width) {
+        *width = window_attributes.width;
+    }
+    
+    if (height) {
+        *height = window_attributes.height;
+    }
+}
+
 static void x11_put_pixelbuffer_on_screen(X11State* x11_state, ApplicationState* application_state)
 {
     XWindowAttributes window_attributes;
