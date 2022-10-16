@@ -17,6 +17,8 @@ static VkFormat                 vulkan_swap_chain_image_format;
 static VkExtent2D               vulkan_swap_chain_extent;
 static VkImageView              vulkan_swap_chain_image_views[100];
 static u32                      vulkan_swap_chain_image_views_count;
+static VkFramebuffer            vulkan_swap_chain_framebuffers[100];
+static u32                      vulkan_swap_chain_framebuffers_count;
 static VkRenderPass             vulkan_render_pass;
 static VkPipelineLayout         vulkan_pipeline_layout;
 static VkPipeline               vulkan_graphics_pipeline;
@@ -940,6 +942,32 @@ static void vulkan_create_graphics_pipeline()
 
 }
 
+static void vulkan_create_framebuffers(void)
+{
+    vulkan_swap_chain_framebuffers_count = vulkan_swap_chain_image_views_count;
+    
+    for (u32 i = 0; i < vulkan_swap_chain_image_views_count; ++i) {
+        VkImageView attachments[] = { vulkan_swap_chain_image_views[i] };
+
+        VkFramebufferCreateInfo framebuffer_info = {0};
+        framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        framebuffer_info.renderPass = vulkan_render_pass;
+        framebuffer_info.attachmentCount = 1;
+        framebuffer_info.pAttachments = attachments;
+        framebuffer_info.width = vulkan_swap_chain_extent.width;
+        framebuffer_info.height = vulkan_swap_chain_extent.height;
+        framebuffer_info.layers = 1;
+
+        VkResult result = vkCreateFramebuffer(vulkan_device, &framebuffer_info,
+                                              NULL, &vulkan_swap_chain_framebuffers[i]);
+        if (result != VK_SUCCESS) {
+            char buf[1024];
+            vulkan_result_to_string(buf, result);
+            FC_ERROR("Failed to create framebuffer: %s", buf);
+        }        
+    }
+}
+
 void x11_vulkan_init(X11State* x11_state)
 {
     FC_INFO("Initializing Vulkan");
@@ -953,6 +981,7 @@ void x11_vulkan_init(X11State* x11_state)
     vulkan_create_image_views();
     vulkan_create_render_pass();
     vulkan_create_graphics_pipeline();
+    vulkan_create_framebuffers();
     
     FC_INFO("Vulkan initialized");
 }
@@ -962,6 +991,9 @@ void x11_vulkan_deinit(X11State* x11_state)
     FC_INFO("Deinitializing Vulkan");
     (void)x11_state;
 
+    for (u32 i = 0; i < vulkan_swap_chain_framebuffers_count; ++i) {
+        vkDestroyFramebuffer(vulkan_device, vulkan_swap_chain_framebuffers[i], NULL);
+    }
     vkDestroyPipeline(vulkan_device, vulkan_graphics_pipeline, NULL);
     vkDestroyPipelineLayout(vulkan_device, vulkan_pipeline_layout, NULL);
     vkDestroyRenderPass(vulkan_device, vulkan_render_pass, NULL);
