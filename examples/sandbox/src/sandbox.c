@@ -38,14 +38,6 @@ static void handle_game_events(ApplicationState* application_state)
     }
 }
 
-static u32 format_color(Color col)
-{
-    return (u32)(col.a << 24 |
-                 col.r << 16 |
-                 col.g << 8  |
-                 col.b << 0);
-}
-
 void fc_application_init(ApplicationState* application_state)
 {
     app_data = (ApplicationData*)malloc(sizeof(ApplicationData));
@@ -83,23 +75,6 @@ void fc_application_update(ApplicationState* application_state, f64 dt)
         app_data->horizontal_offset += input_state->mouse_dx;
         app_data->vertical_offset   += input_state->mouse_dy;
     }
-    
-    // Rendering
-    /* for (u32 j = 0; j < application_state->height_px; ++j) { */
-    /*     for (u32 i = 0; i < application_state->width_px; ++i) { */
-    /*         f32 u = i / (f32)application_state->width_px; */
-    /*         f32 v = j / (f32)application_state->height_px; */
-
-    /*         Color col = {0}; */
-    /*         /\* col.r = (sinf(powf(u, v) * app_data->time_elapsed_seconds * 2.5f) + 1) / 2.0f * 255.0f; *\/ */
-    /*         col.r = sinf(u * v * app_data->time_elapsed_seconds) * 255.0f; */
-    /*         col.b = (u8)i - app_data->horizontal_offset; */
-    /*         col.g = (u8)j - app_data->vertical_offset; */
-    /*         col.a = 0xFFu; */
-
-    /*         application_state->pixelbuffer[i + j * application_state->width_px] = format_color(col); */
-    /*     } */
-    /* } */
     
     app_data->time_elapsed_seconds += dt;
 }

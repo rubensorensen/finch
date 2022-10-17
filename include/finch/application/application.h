@@ -24,7 +24,6 @@ typedef struct _ApplicationState {
     u32  width_px;
     u32  height_px;
     int  running; 
-    u32* pixelbuffer;
 
     InputState input_state;
     FcEvent events[MAX_EVENTS];

@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-extern void vulkan_draw_frame(void);
+extern void linux_draw_frame(void);
 extern void vulkan_wait_for_device_idle(void);
 
 int main(void)
@@ -26,8 +26,7 @@ int main(void)
         
         platform_poll_events(&application_state);
         fc_application_update(&application_state, delta_time);
-        vulkan_draw_frame();
-        /* platform_put_pixelbuffer_on_screen(&application_state); */
+        linux_draw_frame();
 
         // Update fps in window title approx. every second
         time_since_window_title_updated += delta_time;

@@ -13,6 +13,16 @@
 #include "linux_finch.h"
 #include "linux_vulkan.h"
 
+static X11State x11_state;
+
+extern void vulkan_draw_frame(X11State*);
+extern void vulkan_set_framebuffer_resized(b32);
+
+void linux_draw_frame(void)
+{
+    vulkan_draw_frame(&x11_state);
+}
+
 static s32 terminal_supports_colors = -1;
 
 static void x11_init(X11State* x11_state)
@@ -70,43 +80,17 @@ void x11_get_framebuffer_size(X11State* x11_state, u32* width, u32* height)
     }
 }
 
-static void x11_put_pixelbuffer_on_screen(X11State* x11_state, ApplicationState* application_state)
-{
-    XWindowAttributes window_attributes;
-    XGetWindowAttributes(x11_state->display, x11_state->window, &window_attributes);
-    
-    XImage* img = XCreateImage(x11_state->display,
-                               window_attributes.visual, window_attributes.depth,
-                               ZPixmap, 0, (char*)application_state->pixelbuffer,
-                               application_state->width_px, application_state->height_px,
-                               32, application_state->width_px * sizeof(application_state->pixelbuffer[0]));
-
-    XPutImage(x11_state->display, x11_state->window,
-              x11_state->gc, img,
-              0, 0,
-              0, 0,
-              application_state->width_px,
-              application_state->height_px);
-}
-
-static void game_initialize_pixelbuffer(ApplicationState* application_state) {
-    if (application_state->pixelbuffer != NULL) {
-        free(application_state->pixelbuffer);
-    }
-    application_state->pixelbuffer = (u32*)malloc(application_state->width_px * application_state->height_px * sizeof(u32));
-}
-
 static void game_resize(ApplicationState* application_state, u32 new_width, u32 new_height)
 {
     application_state->width_px  = new_width;
     application_state->height_px = new_height;
-    game_initialize_pixelbuffer(application_state);
 }
 
 static void x11_resize_window(X11State* x11_state, u32 new_width, u32 new_height)
 {
     x11_state->window_attributes.width  = new_width;
     x11_state->window_attributes.height = new_height;
+    vulkan_set_framebuffer_resized(true);
 }
 
 static void x11_handle_events(X11State* x11_state, ApplicationState* application_state)
@@ -420,7 +404,6 @@ static void x11_handle_events(X11State* x11_state, ApplicationState* application
                 }
             } break;
             case Expose: {
-                x11_put_pixelbuffer_on_screen(x11_state, application_state);
             } break;
             case ConfigureNotify: {
                 XConfigureEvent xce = e.xconfigure;
@@ -455,8 +438,6 @@ static f64 clock_now(void)
     return (f64)(now.tv_sec + (now.tv_nsec / 1000) * 0.000001);
 }
 
-static X11State x11_state;
-
 void platform_init(ApplicationState* application_state)
 {
     char* game_name = application_state->name != NULL
@@ -486,21 +467,14 @@ void platform_init(ApplicationState* application_state)
 
 void platform_deinit(ApplicationState* application_state)
 {
+    (void)application_state;
     x11_vulkan_deinit(&x11_state);
     x11_deinit(&x11_state);
-    if (application_state->pixelbuffer) {
-        free(application_state->pixelbuffer);
-    }
 }
 
 void platform_poll_events(ApplicationState* application_state)
 {
     x11_handle_events(&x11_state, application_state);
-}
-
-void platform_put_pixelbuffer_on_screen(ApplicationState* application_state)
-{
-    x11_put_pixelbuffer_on_screen(&x11_state, application_state);
 }
 
 WindowAttributes* platform_get_window_attributes(void)

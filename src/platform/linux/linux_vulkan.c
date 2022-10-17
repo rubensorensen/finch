@@ -33,6 +33,7 @@ static VkSemaphore              vulkan_render_finished_semaphores[MAX_FRAMES_IN_
 static VkFence                  vulkan_in_flight_fences[MAX_FRAMES_IN_FLIGHT];
 
 static u32                      vulkan_current_frame;
+static b32                      vulkan_framebuffer_resized;
 
 static const char* instance_extensions[] = {
     VK_KHR_SURFACE_EXTENSION_NAME,
@@ -1119,16 +1120,55 @@ static void vulkan_create_sync_objects(void)
     }
 }
 
-void vulkan_draw_frame(void)
+static void vulkan_clean_up_swap_chain()
+{
+    for (u32 i = 0; i < vulkan_swap_chain_framebuffers_count; ++i) {
+        vkDestroyFramebuffer(vulkan_device, vulkan_swap_chain_framebuffers[i], NULL);
+    }
+
+    for (u32 i = 0; i < vulkan_swap_chain_image_views_count; ++i) {
+        vkDestroyImageView(vulkan_device, vulkan_swap_chain_image_views[i], NULL);
+    }
+    
+    vkDestroySwapchainKHR(vulkan_device, vulkan_swap_chain, NULL);
+}
+
+static void vulkan_recreate_swap_chain(X11State* x11_state)
+{
+    // TODO: Handle minimization! If window is minimized, application should block!
+    
+    vkDeviceWaitIdle(vulkan_device);
+
+    vulkan_clean_up_swap_chain();
+    
+    vulkan_create_swap_chain(x11_state);
+    vulkan_create_image_views();
+    vulkan_create_framebuffers();
+}
+
+void vulkan_draw_frame(X11State* x11_state)
 {
     vkWaitForFences(vulkan_device, 1, &vulkan_in_flight_fences[vulkan_current_frame],
                     VK_TRUE, UINT64_MAX);
-    vkResetFences(vulkan_device, 1, &vulkan_in_flight_fences[vulkan_current_frame]);
 
     u32 image_index;
-    vkAcquireNextImageKHR(vulkan_device, vulkan_swap_chain, UINT64_MAX,
-                          vulkan_image_available_semaphores[vulkan_current_frame],
-                          VK_NULL_HANDLE, &image_index);
+    VkResult result;
+    result = vkAcquireNextImageKHR(vulkan_device, vulkan_swap_chain, UINT64_MAX,
+                                   vulkan_image_available_semaphores[vulkan_current_frame],
+                                   VK_NULL_HANDLE, &image_index);
+    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+        vulkan_recreate_swap_chain(x11_state);
+        return;
+    }
+    
+    if (result != VK_SUCCESS) {
+        char buf[1024];
+        vulkan_result_to_string(buf, result);
+        FC_ERROR("Failed to acquire swap chain image: %s", buf);
+        return;
+    }
+    
+    vkResetFences(vulkan_device, 1, &vulkan_in_flight_fences[vulkan_current_frame]);
 
     vkResetCommandBuffer(vulkan_command_buffers[vulkan_current_frame], 0);
     vulkan_record_command_buffer(vulkan_command_buffers[vulkan_current_frame],
@@ -1157,7 +1197,7 @@ void vulkan_draw_frame(void)
     submit_info.signalSemaphoreCount = 1;
     submit_info.pSignalSemaphores = signal_semaphores;
 
-    VkResult result = vkQueueSubmit(vulkan_graphics_queue, 1, &submit_info,
+    result = vkQueueSubmit(vulkan_graphics_queue, 1, &submit_info,
                                     vulkan_in_flight_fences[vulkan_current_frame]);
     if (result != VK_SUCCESS) {
         char buf[1024];
@@ -1176,9 +1216,24 @@ void vulkan_draw_frame(void)
     present_info.pImageIndices = &image_index;
     present_info.pResults = NULL;
 
-    vkQueuePresentKHR(vulkan_present_queue, &present_info);
+    result = vkQueuePresentKHR(vulkan_present_queue, &present_info);
 
+    if (result == VK_ERROR_OUT_OF_DATE_KHR ||
+        result == VK_SUBOPTIMAL_KHR || vulkan_framebuffer_resized) {
+        vulkan_framebuffer_resized = false;
+        vulkan_recreate_swap_chain(x11_state);
+    } else if (result != VK_SUCCESS) {
+        char buf[1024];
+        vulkan_result_to_string(buf, result);
+        FC_ERROR("Failed to present swap chain image: %s", buf);
+    }
+    
     vulkan_current_frame = (vulkan_current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
+}
+
+void vulkan_set_framebuffer_resized(b32 state)
+{
+    vulkan_framebuffer_resized = state;
 }
 
 void vulkan_wait_for_device_idle(void)
@@ -1212,22 +1267,19 @@ void x11_vulkan_deinit(X11State* x11_state)
     FC_INFO("Deinitializing Vulkan");
     (void)x11_state;
 
+    vulkan_clean_up_swap_chain();
+
+    vkDestroyPipeline(vulkan_device, vulkan_graphics_pipeline, NULL);
+    vkDestroyPipelineLayout(vulkan_device, vulkan_pipeline_layout, NULL);
+    vkDestroyRenderPass(vulkan_device, vulkan_render_pass, NULL);
+    
     for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
         vkDestroySemaphore(vulkan_device, vulkan_image_available_semaphores[i], NULL);
         vkDestroySemaphore(vulkan_device, vulkan_render_finished_semaphores[i], NULL);
         vkDestroyFence(vulkan_device, vulkan_in_flight_fences[i], NULL);
     }
+    
     vkDestroyCommandPool(vulkan_device, vulkan_command_pool, NULL);
-    for (u32 i = 0; i < vulkan_swap_chain_framebuffers_count; ++i) {
-        vkDestroyFramebuffer(vulkan_device, vulkan_swap_chain_framebuffers[i], NULL);
-    }
-    vkDestroyPipeline(vulkan_device, vulkan_graphics_pipeline, NULL);
-    vkDestroyPipelineLayout(vulkan_device, vulkan_pipeline_layout, NULL);
-    vkDestroyRenderPass(vulkan_device, vulkan_render_pass, NULL);
-    for (u32 i = 0; i < vulkan_swap_chain_image_views_count; ++i) {
-        vkDestroyImageView(vulkan_device, vulkan_swap_chain_image_views[i], NULL);
-    }
-    vkDestroySwapchainKHR(vulkan_device, vulkan_swap_chain, NULL);
     vkDestroyDevice(vulkan_device, NULL);
     vkDestroySurfaceKHR(vulkan_instance, vulkan_surface, NULL);
     destroy_debug_utils_messenger_EXT(vulkan_instance, vulkan_debug_messenger, NULL);
