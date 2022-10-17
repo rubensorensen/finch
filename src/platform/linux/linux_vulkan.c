@@ -837,27 +837,9 @@ static void vulkan_create_graphics_pipeline()
     input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     input_assembly.primitiveRestartEnable = VK_FALSE;
 
-    // Viewports and scissors
-    VkViewport viewport = {0};
-    viewport.x          = 0.0f;
-    viewport.y          = 0.0f;
-    viewport.width      = (f32)vulkan_swap_chain_extent.width;
-    viewport.height     = (f32)vulkan_swap_chain_extent.height;
-    viewport.minDepth   = 0.0f;
-    viewport.maxDepth   = 1.0f;
-
-    VkRect2D scissor = {0};
-    scissor.offset.x = 0;
-    scissor.offset.y = 0;
-    scissor.extent.width = vulkan_swap_chain_extent.width;
-    scissor.extent.height = vulkan_swap_chain_extent.height;
-
+    // Using dynamic viewport so no need to set anything
     VkPipelineViewportStateCreateInfo viewport_state = {0};
     viewport_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewport_state.viewportCount = 1;
-    viewport_state.pViewports = &viewport;
-    viewport_state.scissorCount = 1;
-    viewport_state.pScissors = &scissor;
 
     // Rasterizer
     VkPipelineRasterizationStateCreateInfo rasterizer = {0};
