@@ -32,7 +32,7 @@ void fc_logger_log(char* name, FcLogLevel level,
     u32 buf_len = string_length_null_terminated(buf);
     
     buf_len = buf_len + string_format(buf + buf_len, sizeof(buf) - buf_len,
-                            " (%s:%u) %s (%s) ", file, line, name, levels[level]);
+                            " (%s:%u) %s [%s] ", file, line, name, levels[level]);
     string_copy(buf + buf_len, msg);
     
     platform_write_to_stdout(buf);
