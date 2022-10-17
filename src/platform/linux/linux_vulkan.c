@@ -4,6 +4,8 @@
 
 #include <stdlib.h>
 
+#define MAX_FRAMES_IN_FLIGHT 2
+
 static VkInstance               vulkan_instance;
 static VkSurfaceKHR             vulkan_surface;
 static VkPhysicalDevice         vulkan_physical_device;
@@ -23,12 +25,14 @@ static VkRenderPass             vulkan_render_pass;
 static VkPipelineLayout         vulkan_pipeline_layout;
 static VkPipeline               vulkan_graphics_pipeline;
 static VkCommandPool            vulkan_command_pool;
-static VkCommandBuffer          vulkan_command_buffer;
+static VkCommandBuffer          vulkan_command_buffers[MAX_FRAMES_IN_FLIGHT];
 static VkDebugUtilsMessengerEXT vulkan_debug_messenger;
 
-static VkSemaphore              vulkan_image_available_semaphore;
-static VkSemaphore              vulkan_render_finished_semaphore;
-static VkFence                  vulkan_in_flight_fence;
+static VkSemaphore              vulkan_image_available_semaphores[MAX_FRAMES_IN_FLIGHT];
+static VkSemaphore              vulkan_render_finished_semaphores[MAX_FRAMES_IN_FLIGHT];
+static VkFence                  vulkan_in_flight_fences[MAX_FRAMES_IN_FLIGHT];
+
+static u32                      vulkan_current_frame;
 
 static const char* instance_extensions[] = {
     VK_KHR_SURFACE_EXTENSION_NAME,
@@ -1004,16 +1008,16 @@ static void vulkan_create_command_pool(void)
     }        
 }
 
-static void vulkan_create_command_buffer(void)
+static void vulkan_create_command_buffers(void)
 {
     VkCommandBufferAllocateInfo alloc_info = {0};
     alloc_info.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     alloc_info.commandPool        = vulkan_command_pool;
     alloc_info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    alloc_info.commandBufferCount = 1;
+    alloc_info.commandBufferCount = (u32)MAX_FRAMES_IN_FLIGHT;
 
     VkResult result = vkAllocateCommandBuffers(vulkan_device, &alloc_info,
-                                        &vulkan_command_buffer);
+                                        vulkan_command_buffers);
     if (result != VK_SUCCESS) {
         char buf[1024];
         vulkan_result_to_string(buf, result);
@@ -1087,47 +1091,56 @@ static void vulkan_create_sync_objects(void)
     fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-    VkResult result = vkCreateSemaphore(vulkan_device, &semaphore_info,
-                                        NULL, &vulkan_image_available_semaphore);
-    if (result != VK_SUCCESS) {
-        char buf[1024];
-        vulkan_result_to_string(buf, result);
-        FC_ERROR("Failed to create semaphore: %s", buf);
-    }
+    for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+        VkResult result;
+        result = vkCreateSemaphore(vulkan_device, &semaphore_info,
+                                   NULL, &vulkan_image_available_semaphores[i]);
+        if (result != VK_SUCCESS) {
+            char buf[1024];
+            vulkan_result_to_string(buf, result);
+            FC_ERROR("Failed to create semaphore: %s", buf);
+        }
     
-    result = vkCreateSemaphore(vulkan_device, &semaphore_info,
-                                        NULL, &vulkan_render_finished_semaphore);
-    if (result != VK_SUCCESS) {
-        char buf[1024];
-        vulkan_result_to_string(buf, result);
-        FC_ERROR("Failed to create semaphore: %s", buf);
-    }
+        result = vkCreateSemaphore(vulkan_device, &semaphore_info,
+                                   NULL, &vulkan_render_finished_semaphores[i]);
+        if (result != VK_SUCCESS) {
+            char buf[1024];
+            vulkan_result_to_string(buf, result);
+            FC_ERROR("Failed to create semaphore: %s", buf);
+        }
 
-    result = vkCreateFence(vulkan_device, &fence_info, NULL, &vulkan_in_flight_fence);
-    if (result != VK_SUCCESS) {
-        char buf[1024];
-        vulkan_result_to_string(buf, result);
-        FC_ERROR("Failed to create fence: %s", buf);
+        result = vkCreateFence(vulkan_device, &fence_info,
+                               NULL, &vulkan_in_flight_fences[i]);
+        if (result != VK_SUCCESS) {
+            char buf[1024];
+            vulkan_result_to_string(buf, result);
+            FC_ERROR("Failed to create fence: %s", buf);
+        }
     }
 }
 
 void vulkan_draw_frame(void)
 {
-    vkWaitForFences(vulkan_device, 1, &vulkan_in_flight_fence, VK_TRUE, UINT64_MAX);
-    vkResetFences(vulkan_device, 1, &vulkan_in_flight_fence);
+    vkWaitForFences(vulkan_device, 1, &vulkan_in_flight_fences[vulkan_current_frame],
+                    VK_TRUE, UINT64_MAX);
+    vkResetFences(vulkan_device, 1, &vulkan_in_flight_fences[vulkan_current_frame]);
 
     u32 image_index;
     vkAcquireNextImageKHR(vulkan_device, vulkan_swap_chain, UINT64_MAX,
-                          vulkan_image_available_semaphore, VK_NULL_HANDLE,
-                          &image_index);
+                          vulkan_image_available_semaphores[vulkan_current_frame],
+                          VK_NULL_HANDLE, &image_index);
 
-    vkResetCommandBuffer(vulkan_command_buffer, 0);
-    vulkan_record_command_buffer(vulkan_command_buffer, image_index);
+    vkResetCommandBuffer(vulkan_command_buffers[vulkan_current_frame], 0);
+    vulkan_record_command_buffer(vulkan_command_buffers[vulkan_current_frame],
+                                 image_index);
 
     VkSubmitInfo submit_info = {0};
     submit_info.sType        = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-    VkSemaphore wait_semaphores[] = { vulkan_image_available_semaphore };
+    VkSemaphore wait_semaphores[] = {
+        vulkan_image_available_semaphores[vulkan_current_frame]
+    };
+    
     VkPipelineStageFlags wait_stages[] =
         { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
     
@@ -1135,14 +1148,17 @@ void vulkan_draw_frame(void)
     submit_info.pWaitSemaphores    = wait_semaphores;
     submit_info.pWaitDstStageMask  = wait_stages;
     submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers    = &vulkan_command_buffer;
+    submit_info.pCommandBuffers    = &vulkan_command_buffers[vulkan_current_frame];
 
-    VkSemaphore signal_semaphores[] = { vulkan_render_finished_semaphore };
+    VkSemaphore signal_semaphores[] = {
+        vulkan_render_finished_semaphores[vulkan_current_frame]
+    };
+    
     submit_info.signalSemaphoreCount = 1;
     submit_info.pSignalSemaphores = signal_semaphores;
 
     VkResult result = vkQueueSubmit(vulkan_graphics_queue, 1, &submit_info,
-                                    vulkan_in_flight_fence);
+                                    vulkan_in_flight_fences[vulkan_current_frame]);
     if (result != VK_SUCCESS) {
         char buf[1024];
         vulkan_result_to_string(buf, result);
@@ -1161,6 +1177,8 @@ void vulkan_draw_frame(void)
     present_info.pResults = NULL;
 
     vkQueuePresentKHR(vulkan_present_queue, &present_info);
+
+    vulkan_current_frame = (vulkan_current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
 void vulkan_wait_for_device_idle(void)
@@ -1183,7 +1201,7 @@ void x11_vulkan_init(X11State* x11_state)
     vulkan_create_graphics_pipeline();
     vulkan_create_framebuffers();
     vulkan_create_command_pool();
-    vulkan_create_command_buffer();
+    vulkan_create_command_buffers();
     vulkan_create_sync_objects();
     
     FC_INFO("Vulkan initialized");
@@ -1194,9 +1212,11 @@ void x11_vulkan_deinit(X11State* x11_state)
     FC_INFO("Deinitializing Vulkan");
     (void)x11_state;
 
-    vkDestroySemaphore(vulkan_device, vulkan_image_available_semaphore, NULL);
-    vkDestroySemaphore(vulkan_device, vulkan_render_finished_semaphore, NULL);
-    vkDestroyFence(vulkan_device, vulkan_in_flight_fence, NULL);
+    for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+        vkDestroySemaphore(vulkan_device, vulkan_image_available_semaphores[i], NULL);
+        vkDestroySemaphore(vulkan_device, vulkan_render_finished_semaphores[i], NULL);
+        vkDestroyFence(vulkan_device, vulkan_in_flight_fences[i], NULL);
+    }
     vkDestroyCommandPool(vulkan_device, vulkan_command_pool, NULL);
     for (u32 i = 0; i < vulkan_swap_chain_framebuffers_count; ++i) {
         vkDestroyFramebuffer(vulkan_device, vulkan_swap_chain_framebuffers[i], NULL);
