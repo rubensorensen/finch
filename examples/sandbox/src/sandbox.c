@@ -85,21 +85,21 @@ void fc_application_update(ApplicationState* application_state, f64 dt)
     }
     
     // Rendering
-    for (u32 j = 0; j < application_state->height_px; ++j) {
-        for (u32 i = 0; i < application_state->width_px; ++i) {
-            f32 u = i / (f32)application_state->width_px;
-            f32 v = j / (f32)application_state->height_px;
+    /* for (u32 j = 0; j < application_state->height_px; ++j) { */
+    /*     for (u32 i = 0; i < application_state->width_px; ++i) { */
+    /*         f32 u = i / (f32)application_state->width_px; */
+    /*         f32 v = j / (f32)application_state->height_px; */
 
-            Color col = {0};
-            /* col.r = (sinf(powf(u, v) * app_data->time_elapsed_seconds * 2.5f) + 1) / 2.0f * 255.0f; */
-            col.r = sinf(u * v * app_data->time_elapsed_seconds) * 255.0f;
-            col.b = (u8)i - app_data->horizontal_offset;
-            col.g = (u8)j - app_data->vertical_offset;
-            col.a = 0xFFu;
+    /*         Color col = {0}; */
+    /*         /\* col.r = (sinf(powf(u, v) * app_data->time_elapsed_seconds * 2.5f) + 1) / 2.0f * 255.0f; *\/ */
+    /*         col.r = sinf(u * v * app_data->time_elapsed_seconds) * 255.0f; */
+    /*         col.b = (u8)i - app_data->horizontal_offset; */
+    /*         col.g = (u8)j - app_data->vertical_offset; */
+    /*         col.a = 0xFFu; */
 
-            application_state->pixelbuffer[i + j * application_state->width_px] = format_color(col);
-        }
-    }
+    /*         application_state->pixelbuffer[i + j * application_state->width_px] = format_color(col); */
+    /*     } */
+    /* } */
     
     app_data->time_elapsed_seconds += dt;
 }

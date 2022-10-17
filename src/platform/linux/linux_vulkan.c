@@ -22,7 +22,13 @@ static u32                      vulkan_swap_chain_framebuffers_count;
 static VkRenderPass             vulkan_render_pass;
 static VkPipelineLayout         vulkan_pipeline_layout;
 static VkPipeline               vulkan_graphics_pipeline;
+static VkCommandPool            vulkan_command_pool;
+static VkCommandBuffer          vulkan_command_buffer;
 static VkDebugUtilsMessengerEXT vulkan_debug_messenger;
+
+static VkSemaphore              vulkan_image_available_semaphore;
+static VkSemaphore              vulkan_render_finished_semaphore;
+static VkFence                  vulkan_in_flight_fence;
 
 static const char* instance_extensions[] = {
     VK_KHR_SURFACE_EXTENSION_NAME,
@@ -734,13 +740,23 @@ static void vulkan_create_render_pass()
     subpass.colorAttachmentCount = 1;
     subpass.pColorAttachments = &color_attachment_ref;
 
+    VkSubpassDependency dependency = {0};
+    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass = 0;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.srcAccessMask = 0;
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    
     VkRenderPassCreateInfo render_pass_info = {0};
     render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
     render_pass_info.attachmentCount = 1;
     render_pass_info.pAttachments = &color_attachment;
     render_pass_info.subpassCount = 1;
     render_pass_info.pSubpasses = &subpass;
-
+    render_pass_info.dependencyCount = 1;
+    render_pass_info.pDependencies = &dependency;
+        
     VkResult result = vkCreateRenderPass(vulkan_device, &render_pass_info,
                                          NULL, &vulkan_render_pass);
     if (result != VK_SUCCESS) {
@@ -748,6 +764,7 @@ static void vulkan_create_render_pass()
         vulkan_result_to_string(buf, result);
         FC_ERROR("Failed to create render pass: %s", buf);
     }
+
 }
 
 static void vulkan_create_graphics_pipeline()
@@ -950,13 +967,13 @@ static void vulkan_create_framebuffers(void)
         VkImageView attachments[] = { vulkan_swap_chain_image_views[i] };
 
         VkFramebufferCreateInfo framebuffer_info = {0};
-        framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        framebuffer_info.renderPass = vulkan_render_pass;
+        framebuffer_info.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        framebuffer_info.renderPass      = vulkan_render_pass;
         framebuffer_info.attachmentCount = 1;
-        framebuffer_info.pAttachments = attachments;
-        framebuffer_info.width = vulkan_swap_chain_extent.width;
-        framebuffer_info.height = vulkan_swap_chain_extent.height;
-        framebuffer_info.layers = 1;
+        framebuffer_info.pAttachments    = attachments;
+        framebuffer_info.width           = vulkan_swap_chain_extent.width;
+        framebuffer_info.height          = vulkan_swap_chain_extent.height;
+        framebuffer_info.layers          = 1;
 
         VkResult result = vkCreateFramebuffer(vulkan_device, &framebuffer_info,
                                               NULL, &vulkan_swap_chain_framebuffers[i]);
@@ -966,6 +983,189 @@ static void vulkan_create_framebuffers(void)
             FC_ERROR("Failed to create framebuffer: %s", buf);
         }        
     }
+}
+
+static void vulkan_create_command_pool(void)
+{
+    VulkanQueueFamilyIndices queue_family_indices =
+        vulkan_find_queue_families(vulkan_physical_device);
+
+    VkCommandPoolCreateInfo pool_info = {0};
+    pool_info.sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    pool_info.flags            = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    pool_info.queueFamilyIndex = queue_family_indices.graphics_family_index;
+
+    VkResult result = vkCreateCommandPool(vulkan_device, &pool_info, NULL,
+                                          &vulkan_command_pool);
+    if (result != VK_SUCCESS) {
+        char buf[1024];
+        vulkan_result_to_string(buf, result);
+        FC_ERROR("Failed to create framebuffer: %s", buf);
+    }        
+}
+
+static void vulkan_create_command_buffer(void)
+{
+    VkCommandBufferAllocateInfo alloc_info = {0};
+    alloc_info.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    alloc_info.commandPool        = vulkan_command_pool;
+    alloc_info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    alloc_info.commandBufferCount = 1;
+
+    VkResult result = vkAllocateCommandBuffers(vulkan_device, &alloc_info,
+                                        &vulkan_command_buffer);
+    if (result != VK_SUCCESS) {
+        char buf[1024];
+        vulkan_result_to_string(buf, result);
+        FC_ERROR("Failed to allocate command buffers: %s", buf);
+    }
+}
+
+static void vulkan_record_command_buffer(VkCommandBuffer command_buffer, u32 image_index)
+{
+    VkCommandBufferBeginInfo begin_info = {0};
+    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    begin_info.flags = 0;
+    begin_info.pInheritanceInfo = NULL;
+
+    VkResult result = vkBeginCommandBuffer(command_buffer, &begin_info);
+    if (result != VK_SUCCESS) {
+        char buf[1024];
+        vulkan_result_to_string(buf, result);
+        FC_ERROR("Failed to begin recording command buffer: %s", buf);
+    }
+
+    VkRenderPassBeginInfo render_pass_info = {0};
+    render_pass_info.sType               = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    render_pass_info.renderPass          = vulkan_render_pass;
+    render_pass_info.framebuffer         = vulkan_swap_chain_framebuffers[image_index];
+    render_pass_info.renderArea.offset.x = 0;
+    render_pass_info.renderArea.offset.y = 0;
+    render_pass_info.renderArea.extent   = vulkan_swap_chain_extent;
+
+    VkClearValue clear_color         = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
+    render_pass_info.clearValueCount = 1;
+    render_pass_info.pClearValues    = &clear_color;
+
+    vkCmdBeginRenderPass(command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                      vulkan_graphics_pipeline);
+
+    VkViewport viewport = {0};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = (f32)vulkan_swap_chain_extent.width;
+    viewport.height = (f32)vulkan_swap_chain_extent.height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(command_buffer, 0, 1, &viewport);
+
+    VkRect2D scissor = {0};
+    scissor.offset.x = 0;
+    scissor.offset.y = 0;
+    scissor.extent = vulkan_swap_chain_extent;
+    vkCmdSetScissor(command_buffer, 0, 1, &scissor);
+
+    vkCmdDraw(command_buffer, 3, 1, 0, 0);
+
+    vkCmdEndRenderPass(command_buffer);
+
+    result = vkEndCommandBuffer(command_buffer);
+    if (result != VK_SUCCESS) {
+        char buf[1024];
+        vulkan_result_to_string(buf, result);
+        FC_ERROR("Failed to record command buffer: %s", buf);
+    }
+}
+
+static void vulkan_create_sync_objects(void)
+{
+    VkSemaphoreCreateInfo semaphore_info = {0};
+    semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+    VkFenceCreateInfo fence_info = {0};
+    fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+    VkResult result = vkCreateSemaphore(vulkan_device, &semaphore_info,
+                                        NULL, &vulkan_image_available_semaphore);
+    if (result != VK_SUCCESS) {
+        char buf[1024];
+        vulkan_result_to_string(buf, result);
+        FC_ERROR("Failed to create semaphore: %s", buf);
+    }
+    
+    result = vkCreateSemaphore(vulkan_device, &semaphore_info,
+                                        NULL, &vulkan_render_finished_semaphore);
+    if (result != VK_SUCCESS) {
+        char buf[1024];
+        vulkan_result_to_string(buf, result);
+        FC_ERROR("Failed to create semaphore: %s", buf);
+    }
+
+    result = vkCreateFence(vulkan_device, &fence_info, NULL, &vulkan_in_flight_fence);
+    if (result != VK_SUCCESS) {
+        char buf[1024];
+        vulkan_result_to_string(buf, result);
+        FC_ERROR("Failed to create fence: %s", buf);
+    }
+}
+
+void vulkan_draw_frame(void)
+{
+    vkWaitForFences(vulkan_device, 1, &vulkan_in_flight_fence, VK_TRUE, UINT64_MAX);
+    vkResetFences(vulkan_device, 1, &vulkan_in_flight_fence);
+
+    u32 image_index;
+    vkAcquireNextImageKHR(vulkan_device, vulkan_swap_chain, UINT64_MAX,
+                          vulkan_image_available_semaphore, VK_NULL_HANDLE,
+                          &image_index);
+
+    vkResetCommandBuffer(vulkan_command_buffer, 0);
+    vulkan_record_command_buffer(vulkan_command_buffer, image_index);
+
+    VkSubmitInfo submit_info = {0};
+    submit_info.sType        = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+    VkSemaphore wait_semaphores[] = { vulkan_image_available_semaphore };
+    VkPipelineStageFlags wait_stages[] =
+        { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+    
+    submit_info.waitSemaphoreCount = 1;
+    submit_info.pWaitSemaphores    = wait_semaphores;
+    submit_info.pWaitDstStageMask  = wait_stages;
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers    = &vulkan_command_buffer;
+
+    VkSemaphore signal_semaphores[] = { vulkan_render_finished_semaphore };
+    submit_info.signalSemaphoreCount = 1;
+    submit_info.pSignalSemaphores = signal_semaphores;
+
+    VkResult result = vkQueueSubmit(vulkan_graphics_queue, 1, &submit_info,
+                                    vulkan_in_flight_fence);
+    if (result != VK_SUCCESS) {
+        char buf[1024];
+        vulkan_result_to_string(buf, result);
+        FC_ERROR("Failed to submit draw command buffer: %s", buf);
+    }
+
+    VkPresentInfoKHR present_info = {0};
+    present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    present_info.waitSemaphoreCount = 1;
+    present_info.pWaitSemaphores = signal_semaphores;
+
+    VkSwapchainKHR swap_chains[] = { vulkan_swap_chain };
+    present_info.swapchainCount = 1;
+    present_info.pSwapchains = swap_chains;
+    present_info.pImageIndices = &image_index;
+    present_info.pResults = NULL;
+
+    vkQueuePresentKHR(vulkan_present_queue, &present_info);
+}
+
+void vulkan_wait_for_device_idle(void)
+{
+    vkDeviceWaitIdle(vulkan_device);
 }
 
 void x11_vulkan_init(X11State* x11_state)
@@ -982,6 +1182,9 @@ void x11_vulkan_init(X11State* x11_state)
     vulkan_create_render_pass();
     vulkan_create_graphics_pipeline();
     vulkan_create_framebuffers();
+    vulkan_create_command_pool();
+    vulkan_create_command_buffer();
+    vulkan_create_sync_objects();
     
     FC_INFO("Vulkan initialized");
 }
@@ -991,6 +1194,10 @@ void x11_vulkan_deinit(X11State* x11_state)
     FC_INFO("Deinitializing Vulkan");
     (void)x11_state;
 
+    vkDestroySemaphore(vulkan_device, vulkan_image_available_semaphore, NULL);
+    vkDestroySemaphore(vulkan_device, vulkan_render_finished_semaphore, NULL);
+    vkDestroyFence(vulkan_device, vulkan_in_flight_fence, NULL);
+    vkDestroyCommandPool(vulkan_device, vulkan_command_pool, NULL);
     for (u32 i = 0; i < vulkan_swap_chain_framebuffers_count; ++i) {
         vkDestroyFramebuffer(vulkan_device, vulkan_swap_chain_framebuffers[i], NULL);
     }
