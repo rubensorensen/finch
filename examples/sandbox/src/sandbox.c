@@ -16,7 +16,7 @@ typedef struct _ApplicationData {
 
 static ApplicationData* app_data;
 
-static void handle_game_events(ApplicationState* application_state)
+static void handle_events(ApplicationState* application_state)
 {
     while (application_state->unhandled_events) {
         FcEvent e = application_state->events[--application_state->unhandled_events];
@@ -53,7 +53,7 @@ void fc_application_init(ApplicationState* application_state)
 
 void fc_application_update(ApplicationState* application_state, f64 dt)
 {   
-    handle_game_events(application_state);
+    handle_events(application_state);
     
     InputState* input_state = &application_state->input_state;
     

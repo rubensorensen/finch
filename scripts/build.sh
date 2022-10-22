@@ -79,7 +79,7 @@ echo -e "${STANDOUT}${BOLD}${GREEN}CREATING DIRECTORIES${NORMAL}"
 create_directories | sed "s|^|    |g"
 echo ""
 
-echo -e "${STANDOUT}${BOLD}${GREEN}COMPILING SOURCES${NORMAL}"
+echo -e "${STANDOUT}${BOLD}${BLUE}COMPILING SOURCES${NORMAL}"
 compile_sources | sed "s|^|    |g"
 echo ""
 

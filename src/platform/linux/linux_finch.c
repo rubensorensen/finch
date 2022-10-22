@@ -40,7 +40,7 @@ static void x11_init(X11State* x11_state)
                                             x11_state->window_attributes.width,
                                             x11_state->window_attributes.height,
                                             0, 0,
-                                            WhitePixel(x11_state->display, x11_state->screen));
+                                            BlackPixel(x11_state->display, x11_state->screen));
 
     XStoreName(x11_state->display, x11_state->window, x11_state->window_attributes.title);
     x11_state->gc = XCreateGC(x11_state->display, x11_state->window, 0, NULL);

@@ -195,7 +195,6 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(
         }
     }
 
-
     return VK_FALSE;
 }
 
@@ -1115,7 +1114,7 @@ static void vulkan_clean_up_swap_chain()
     vkDestroySwapchainKHR(vulkan_device, vulkan_swap_chain, NULL);
 }
 
-static void vulkan_recreate_swap_chain(X11State* x11_state)
+void vulkan_recreate_swap_chain(X11State* x11_state)
 {
     // TODO: Handle minimization! If window is minimized, application should block!
     
