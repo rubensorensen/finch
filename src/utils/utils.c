@@ -44,8 +44,8 @@ u32 read_entire_file(char* dest, u32 max_bytes, char* filepath)
                  filepath, file_size_bytes, max_bytes);
         return 0;
     }
-    
-    
+
+
     fread(dest, file_size_bytes, 1, file);
     fclose(file);
 

@@ -61,20 +61,20 @@ static void x11_init(X11State* x11_state)
 static void x11_deinit(X11State* x11_state)
 {
     XFreeGC(x11_state->display, x11_state->gc);
-	XDestroyWindow(x11_state->display, x11_state->window);
+    XDestroyWindow(x11_state->display, x11_state->window);
     XCloseDisplay(x11_state->display);
 }
 
 void x11_get_framebuffer_size(X11State* x11_state, u32* width, u32* height)
 {
-    
+
     XWindowAttributes window_attributes;
     XGetWindowAttributes(x11_state->display, x11_state->window, &window_attributes);
 
     if (width) {
         *width = window_attributes.width;
     }
-    
+
     if (height) {
         *height = window_attributes.height;
     }
@@ -100,16 +100,16 @@ static void x11_handle_events(X11State* x11_state, ApplicationState* application
     application_state->input_state.mouse_dy = 0;
     while (XPending(x11_state->display) > 0) {
         FcEvent finch_event = {0};
-        
+
         XEvent e = {0};
         XNextEvent(x11_state->display, &e);
-        
+
         switch (e.type) {
             case KeyPress: {
                 finch_event.type = FC_EVENT_TYPE_KEY_PRESSED;
                 KeySym key = XLookupKeysym(&e.xkey, 0);
                 FcKey finch_key = FC_KEY_NONE;
-                
+
                 // Character key
                 if (key >= 'a' && key <= 'z') {
                     finch_key = (FcKey)(key - 'a' + FC_KEY_A);
@@ -158,7 +158,7 @@ static void x11_handle_events(X11State* x11_state, ApplicationState* application
                         } break;
                         case 65509: {
                             finch_key = FC_KEY_CAPS_LOCK;
-                        } break;                            
+                        } break;
                         case 65362: {
                             finch_key = FC_KEY_UP;
                         } break;
@@ -209,17 +209,16 @@ static void x11_handle_events(X11State* x11_state, ApplicationState* application
                         } break;
                         default: {
                             // Unhandled key
-                            FC_ENGINE_WARN("Unhandled key press event (Key: %d)",
-                                           key);
+                            FC_ENGINE_WARN("Unhandled key press event (Key: %d)", key);
                             finch_event.type = FC_EVENT_TYPE_NONE;
                             finch_key = FC_KEY_NONE;
                         }
                     }
                 }
-                
+
                 finch_event.key = finch_key;
                 application_state->input_state.key_is_down[finch_key] = true;
-                
+
             } break;
             case KeyRelease: {
 
@@ -235,7 +234,7 @@ static void x11_handle_events(X11State* x11_state, ApplicationState* application
                         break;
                     }
                 }
-     
+
                 finch_event.type = FC_EVENT_TYPE_KEY_RELEASED;
                 KeySym key = XLookupKeysym(&e.xkey, 0);
                 FcKey finch_key = FC_KEY_NONE;
@@ -289,26 +288,26 @@ static void x11_handle_events(X11State* x11_state, ApplicationState* application
                         }
                     }
                 }
-                
+
                 finch_event.key = finch_key;
                 application_state->input_state.key_is_down[finch_key] = false;
-                
+
             } break;
             case ButtonPress: {
                 u32 button = e.xbutton.button;
                 FcButton finch_button = FC_BUTTON_NONE;
-                
+
                 if (button >= 1 && button <= 3) {
                     finch_event.type = FC_EVENT_TYPE_BUTTON_PRESSED;
                 }
-                
+
                 else if (button >= 4 && button <= 7) {
                     finch_event.type = FC_EVENT_TYPE_WHEEL_SCROLLED;
                 }
-                
-                finch_event.mouse_x = e.xbutton.x;                
+
+                finch_event.mouse_x = e.xbutton.x;
                 finch_event.mouse_y = e.xbutton.y;
-                
+
                 switch (button) {
                     case 1: {
                         // Left mouse button
@@ -347,7 +346,7 @@ static void x11_handle_events(X11State* x11_state, ApplicationState* application
 
                 finch_event.button = finch_button;
                 application_state->input_state.button_is_down[finch_button] = true;
-                
+
             } break;
             case ButtonRelease: {
                 u32 button = e.xbutton.button;
@@ -356,13 +355,13 @@ static void x11_handle_events(X11State* x11_state, ApplicationState* application
                 if (button < 1 || button > 3) {
                     break;
                 }
-                
+
                 finch_event.type = FC_EVENT_TYPE_BUTTON_RELEASED;
                 FcButton finch_button = FC_BUTTON_NONE;
-                
+
                 finch_event.mouse_x = e.xbutton.x;
                 finch_event.mouse_y = e.xbutton.y;
-                
+
                 switch (button) {
                     case 1: {
                         // Left mouse button
@@ -380,23 +379,23 @@ static void x11_handle_events(X11State* x11_state, ApplicationState* application
 
                 finch_event.button = finch_button;
                 application_state->input_state.button_is_down[finch_button] = false;
-                
+
             } break;
             case MotionNotify: {
                 finch_event.type = FC_EVENT_TYPE_MOUSE_MOVED;
-                
+
                 finch_event.mouse_x = e.xbutton.x;
                 application_state->input_state.mouse_dx +=
                     (e.xbutton.x - application_state->input_state.mouse_x);
-                
+
                 application_state->input_state.mouse_x = e.xmotion.x;
-                
+
                 finch_event.mouse_y = e.xbutton.y;
                 application_state->input_state.mouse_dy +=
                     (e.xbutton.y - application_state->input_state.mouse_y);
-                
+
                 application_state->input_state.mouse_y = e.xmotion.y;
-                
+
             } break;
             case ClientMessage: {
                 if ((Atom)e.xclient.data.l[0] == x11_state->wm_delete_window) {
@@ -415,7 +414,7 @@ static void x11_handle_events(X11State* x11_state, ApplicationState* application
                     game_resize(application_state,
                                 x11_state->window_attributes.width,
                                 x11_state->window_attributes.height);
-                } 
+                }
             } break;
         }
 
@@ -457,7 +456,7 @@ void platform_init(ApplicationState* application_state)
 
     x11_state.window_attributes = window_attributes;
     x11_init(&x11_state);
-    
+
     game_resize(application_state,
                 x11_state.window_attributes.width,
                 x11_state.window_attributes.height);
@@ -513,7 +512,7 @@ b32 platform_terminal_supports_colors()
     if (pid < 0) {
         return false;
     }
-    
+
     if (pid == 0) {
         // Child
         close(fd[0]);

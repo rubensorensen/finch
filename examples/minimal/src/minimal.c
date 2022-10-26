@@ -19,7 +19,7 @@ void fc_application_update(ApplicationState* app_state, f64 delta_time)
     for (u32 y = 0; y < app_state->height_px; ++y) {
         for (u32 x = 0; x < app_state->width_px; ++x) {
             u32* pixel = app_state->pixelbuffer + (x + y * app_state->width_px);
-            
+
             *((u8*)pixel + 0) = (u8)0xFF;
             *((u8*)pixel + 1) = (u8)x;
             *((u8*)pixel + 2) = (u8)y;

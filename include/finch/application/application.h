@@ -23,7 +23,7 @@ typedef struct _ApplicationState {
     char* name;
     u32  width_px;
     u32  height_px;
-    int  running; 
+    int  running;
 
     InputState input_state;
     FcEvent events[MAX_EVENTS];

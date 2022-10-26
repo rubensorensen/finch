@@ -16,7 +16,7 @@ typedef struct _VulkanQueueFamilyIndices {
 
 typedef struct _VulkanSwapChainSupportDetails {
     VkSurfaceCapabilitiesKHR capabilities;
-    
+
     u32                      format_count;
     VkSurfaceFormatKHR       formats[1024];
 

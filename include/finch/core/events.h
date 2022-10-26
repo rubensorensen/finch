@@ -23,7 +23,7 @@ typedef enum _FcButton {
 
 typedef enum _FcKey {
     FC_KEY_NONE = 0,
-    
+
     FC_KEY_A,
     FC_KEY_B,
     FC_KEY_C,
@@ -63,10 +63,10 @@ typedef enum _FcKey {
 
     FC_KEY_LEFT_CTRL,
     FC_KEY_RIGHT_CTRL,
-    
+
     FC_KEY_LEFT_SHIFT,
     FC_KEY_RIGHT_SHIFT,
-    
+
     FC_KEY_LEFT_ALT,
     FC_KEY_RIGHT_ALT,
 
@@ -95,7 +95,7 @@ typedef enum _FcKey {
     FC_KEY_F10,
     FC_KEY_F11,
     FC_KEY_F12,
-    
+
     FC_KEY_COUNT
 } FcKey;
 

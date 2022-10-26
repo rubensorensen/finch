@@ -14,16 +14,16 @@ int main(void)
     ApplicationState application_state = {0};
     fc_application_init(&application_state);
     platform_init(&application_state);
-    
+
     f64 prev_time = platform_get_epoch_time();
 
     f64 time_since_window_title_updated = 0.0;
-    
+
     application_state.running = true;
     while (application_state.running) {
         f64 curr_time = platform_get_epoch_time();
         f64 delta_time = curr_time - prev_time;
-        
+
         platform_poll_events(&application_state);
         fc_application_update(&application_state, delta_time);
         linux_draw_frame();
@@ -45,6 +45,6 @@ int main(void)
 
     platform_deinit(&application_state);
     fc_application_deinit(&application_state);
-    
+
     return EXIT_SUCCESS;
 }

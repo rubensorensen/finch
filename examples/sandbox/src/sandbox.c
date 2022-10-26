@@ -20,7 +20,7 @@ static void handle_events(ApplicationState* application_state)
 {
     while (application_state->unhandled_events) {
         FcEvent e = application_state->events[--application_state->unhandled_events];
-        switch (e.type) {                
+        switch (e.type) {
             case FC_EVENT_TYPE_WHEEL_SCROLLED: {
                 if (e.scroll_wheel_vertical_direction != 0) {
                     app_data->vertical_offset -= app_data->velocity * e.scroll_wheel_vertical_direction;
@@ -45,18 +45,18 @@ void fc_application_init(ApplicationState* application_state)
     app_data->horizontal_offset = 0.0f;
     app_data->vertical_offset = 0.0f;
     app_data->velocity = 0.0f;
-    
+
     application_state->name = "Sandbox";
     application_state->width_px = 1280;
     application_state->height_px = 720;
 }
 
 void fc_application_update(ApplicationState* application_state, f64 dt)
-{   
+{
     handle_events(application_state);
-    
+
     InputState* input_state = &application_state->input_state;
-    
+
     app_data->velocity = input_state->key_is_down[FC_KEY_SPACE] ? 500.0f : 250.0f;
     if (input_state->key_is_down[FC_KEY_W]) {
         app_data->vertical_offset += app_data->velocity * dt;
@@ -75,7 +75,7 @@ void fc_application_update(ApplicationState* application_state, f64 dt)
         app_data->horizontal_offset += input_state->mouse_dx;
         app_data->vertical_offset   += input_state->mouse_dy;
     }
-    
+
     app_data->time_elapsed_seconds += dt;
 }
 

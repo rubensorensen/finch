@@ -34,34 +34,34 @@ u32 s64_to_string_null_terminated(s64 number, char* buf, u32 buf_size, u16 base)
         FC_ENGINE_ERROR("Buffer size must be at least 2");
         exit(EXIT_FAILURE);
     }
-    
+
     u32 length = 0;
     b32 is_negative = false;
- 
+
     if (number == 0) {
         buf[length++] = '0';
         buf[length] = '\0';
         return length;
     }
- 
+
     if (number < 0 && base == 10) {
         is_negative = true;
         number *= -1;
     }
- 
+
     while (number != 0 && length < buf_size - 1) {
         u64 rem = number % base;
         buf[length++] = (rem > 9) ? (rem - 10) + 'a' : rem + '0';
         number /= base;
     }
- 
+
     if (is_negative && length < buf_size - 1) {
         buf[length++] = '-';
     }
- 
+
     buf[length] = '\0';
     string_reverse_null_terminated(buf);
- 
+
     return length;
 }
 
@@ -71,24 +71,24 @@ u32 u64_to_string_null_terminated(u64 number, char* buf, u32 buf_size, u16 base)
         FC_ENGINE_ERROR("Buffer size must be at least 2");
         exit(EXIT_FAILURE);
     }
-    
+
     u32 length = 0;
- 
+
     if (number == 0) {
         buf[length++] = '0';
         buf[length] = '\0';
         return length;
     }
- 
+
     while (number != 0 && length < buf_size - 1) {
         u64 rem = number % base;
         buf[length++] = (rem > 9) ? (rem - 10) + 'a' : rem + '0';
         number /= base;
     }
- 
+
     buf[length] = '\0';
     string_reverse_null_terminated(buf);
- 
+
     return length;
 }
 
@@ -98,7 +98,7 @@ char* string_copy(char* dest, char* src)
     if (ptr == 0) {
         return 0;
     }
-    
+
     while (src && *src != '\0') {
         *dest++ = *src++;
     }
@@ -110,7 +110,7 @@ char* string_copy(char* dest, char* src)
 b32 string_compare(char* str1, char* str2) {
     u32 str1_len = string_length_null_terminated(str1);
     u32 str2_len = string_length_null_terminated(str2);
-    
+
     if (str1_len != str2_len) {
         return false;
     }
@@ -154,7 +154,7 @@ char* f64_to_string_null_terminated(f64 number, char* buf, u32 buf_size, u32 num
     if (number < 0) *--s = '-';
 
     string_copy(buf, s);
-    
+
     return buf;
 }
 
@@ -166,7 +166,7 @@ u32 string_format(char* dest, u32 max_size, const char* fmt, ...)
 
     va_list args;
     va_start(args, fmt);
-        
+
     while (fmt && fmt[i] && j < max_size - 1) {
 
         // If character is not a '%', treat no formatting is necessary
@@ -174,7 +174,7 @@ u32 string_format(char* dest, u32 max_size, const char* fmt, ...)
             dest[j++] = fmt[i++];
             continue;
         }
-    
+
         // Character is '%', formatting is necessary
         i += 1;
         switch (fmt[i]) {
@@ -222,7 +222,7 @@ u32 string_format(char* dest, u32 max_size, const char* fmt, ...)
                 temp[1] = '\0';
             }
         }
-        
+
         string_copy(dest + j, temp);
         j += string_length_null_terminated(temp);
         i += 1;
