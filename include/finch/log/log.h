@@ -22,11 +22,11 @@ typedef enum _FcLogLevel {
 void fc_logger_log(char* name, FcLogLevel level,
                    char* file, u32 line, char* msg);
 
-#define FC_LOG(NAME, LEVEL, ...) {                                \
-        char LOGBUF[1024];                                        \
-        string_format(LOGBUF, sizeof(LOGBUF), __VA_ARGS__);       \
-        fc_logger_log(NAME, LEVEL,                                \
-                      __FILE__, __LINE__, LOGBUF);                \
+#define FC_LOG(NAME, LEVEL, ...) {                                      \
+        char FINCH_LOGBUF[1024];                                        \
+        string_format(FINCH_LOGBUF, sizeof(FINCH_LOGBUF), __VA_ARGS__); \
+        fc_logger_log(NAME, LEVEL,                                      \
+                      __FILE__, __LINE__, FINCH_LOGBUF);                \
     }
 
 #define FC_ENGINE_TRACE(...)  FC_LOG("FINCH", FC_LOG_LEVEL_TRACE, __VA_ARGS__)

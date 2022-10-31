@@ -27,7 +27,7 @@ static const char* validation_layers[] = {
 static const u32 validation_layers_count =
     sizeof(validation_layers) / sizeof(validation_layers[0]);
 
-static void vulkan_result_to_string(char* buf, VkResult result)
+static void vkresult_to_string(char* buf, VkResult result)
 {
     switch (result)
     {
@@ -106,6 +106,15 @@ static void vulkan_result_to_string(char* buf, VkResult result)
     }
 }
 
+#define VERIFY(result) vulkan_verify(result)
+static void vulkan_verify(VkResult result)
+{
+    if (result != VK_SUCCESS) {
+        char buf[1024];
+        vkresult_to_string(buf, result);
+        FC_ERROR("Vulkan: %s", buf);
+    }
+}
 
 b32 vulkan_queue_family_indices_is_complete(VulkanQueueFamilyIndices* indices)
 {
@@ -144,9 +153,8 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(
     const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
     void* pUserData) {
 
-    // Unused variables
-    (void)messageType;
-    (void)pUserData;
+    UNUSED(messageType);
+    UNUSED(pUserData);
 
     switch (messageSeverity) {
         case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT: {
@@ -191,11 +199,7 @@ void vulkan_init_debug_messenger(void)
 
     VkResult result = create_debug_utils_messenger_EXT(vulkan_state.instance, &create_info,
                                                        NULL, &vulkan_debug_messenger);
-    if (result != VK_SUCCESS) {
-        char buf[1024];
-        vulkan_result_to_string(buf, result);
-        FC_ERROR("failed to set up debug messenger: %s", buf);
-    }
+    VERIFY(result);
 }
 
 b32 check_instance_extension_support() {
@@ -289,11 +293,7 @@ static void vulkan_create_instance(X11State* x11_state)
     create_info.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debug_create_info;
 
     VkResult result = vkCreateInstance(&create_info, NULL, &vulkan_state.instance);
-    if (result != VK_SUCCESS) {
-        char buf[1024];
-        vulkan_result_to_string(buf, result);
-        FC_ERROR("Could not create vulkan instance: %s", buf);
-    }
+    VERIFY(result);
 }
 
 static void vulkan_create_surface(X11State* x11_state)
@@ -305,11 +305,7 @@ static void vulkan_create_surface(X11State* x11_state)
 
     VkResult result = vkCreateXlibSurfaceKHR(vulkan_state.instance, &create_info,
                                              NULL, &vulkan_state.surface);
-    if (result != VK_SUCCESS) {
-        char buf[1024];
-        vulkan_result_to_string(buf, result);
-        FC_ERROR("Could not create vulkan surface: %s", buf);
-    }
+    VERIFY(result);
 }
 
 static VulkanQueueFamilyIndices vulkan_find_queue_families(VkPhysicalDevice device)
@@ -501,12 +497,8 @@ static void vulkan_create_swap_chain(X11State* x11_state)
 
     VkResult result = vkCreateSwapchainKHR(vulkan_state.device, &create_info,
                                      NULL, &vulkan_state.swap_chain_info.swap_chain);
-    if (result != VK_SUCCESS) {
-        char buf[1024];
-        vulkan_result_to_string(buf, result);
-        FC_ERROR("Failed to create swap buffer: %s", buf);
-    }
-
+    VERIFY(result);
+    
     vkGetSwapchainImagesKHR(vulkan_state.device, vulkan_state.swap_chain_info.swap_chain, &image_count, NULL);
     vulkan_state.swap_chain_info.images_count = image_count;
     vkGetSwapchainImagesKHR(vulkan_state.device, vulkan_state.swap_chain_info.swap_chain,
@@ -540,11 +532,7 @@ static void vulkan_create_image_views(void)
 
         VkResult result = vkCreateImageView(vulkan_state.device, &create_info,
                                             NULL, &vulkan_state.swap_chain_info.image_views[i]);
-        if (result != VK_SUCCESS) {
-            char buf[1024];
-            vulkan_result_to_string(buf, result);
-            FC_ERROR("Failed to create image view: %s", buf);
-        }
+        VERIFY(result);
     }
 }
 
@@ -663,11 +651,7 @@ static void vulkan_create_logical_device(void)
 
     VkResult result = vkCreateDevice(vulkan_state.physical_device, &create_info,
                                      NULL, &vulkan_state.device);
-    if (result != VK_SUCCESS) {
-        char buf[1024];
-        vulkan_result_to_string(buf, result);
-        FC_ERROR("Failed to create logical device: %s", buf);
-    }
+    VERIFY(result);
 
     vkGetDeviceQueue(vulkan_state.device, indices.graphics_family_index,
                      0, &vulkan_state.graphics_queue);
@@ -686,12 +670,8 @@ static VkShaderModule vulkan_create_shader_module(char* shader_code,
     VkShaderModule shader_module;
     VkResult result = vkCreateShaderModule(vulkan_state.device, &create_info,
                                            NULL, &shader_module);
-    if (result != VK_SUCCESS) {
-        char buf[1024];
-        vulkan_result_to_string(buf, result);
-        FC_ERROR("Failed to create shader module: %s", buf);
-    }
-
+    VERIFY(result);
+        
     return shader_module;
 }
 
@@ -735,11 +715,7 @@ static void vulkan_create_render_pass()
 
     VkResult result = vkCreateRenderPass(vulkan_state.device, &render_pass_info,
                                          NULL, &vulkan_state.render_pass);
-    if (result != VK_SUCCESS) {
-        char buf[1024];
-        vulkan_result_to_string(buf, result);
-        FC_ERROR("Failed to create render pass: %s", buf);
-    }
+    VERIFY(result);
 
 }
 
@@ -874,11 +850,7 @@ static void vulkan_create_graphics_pipeline()
 
     VkResult result = vkCreatePipelineLayout(vulkan_state.device, &pipeline_layout_info,
                                              NULL, &vulkan_state.pipeline_layout);
-    if (result != VK_SUCCESS) {
-        char buf[1024];
-        vulkan_result_to_string(buf, result);
-        FC_ERROR("Failed to create pipeline layout: %s", buf);
-    }
+    VERIFY(result);
 
     // Pipeline creation
     VkGraphicsPipelineCreateInfo pipeline_info = {0};
@@ -906,11 +878,7 @@ static void vulkan_create_graphics_pipeline()
     result = vkCreateGraphicsPipelines(vulkan_state.device, VK_NULL_HANDLE,
                                                 1, &pipeline_info, NULL,
                                                 &vulkan_state.graphics_pipeline);
-    if (result != VK_SUCCESS) {
-        char buf[1024];
-        vulkan_result_to_string(buf, result);
-        FC_ERROR("Failed to create graphics pipeline: %s", buf);
-    }
+    VERIFY(result);
 
     vkDestroyShaderModule(vulkan_state.device, vertex_shader_module, NULL);
     vkDestroyShaderModule(vulkan_state.device, fragment_shader_module, NULL);
@@ -935,11 +903,7 @@ static void vulkan_create_framebuffers(void)
 
         VkResult result = vkCreateFramebuffer(vulkan_state.device, &framebuffer_info,
                                               NULL, &vulkan_state.swap_chain_info.framebuffers[i]);
-        if (result != VK_SUCCESS) {
-            char buf[1024];
-            vulkan_result_to_string(buf, result);
-            FC_ERROR("Failed to create framebuffer: %s", buf);
-        }
+        VERIFY(result);
     }
 }
 
@@ -955,11 +919,7 @@ static void vulkan_create_command_pool(void)
 
     VkResult result = vkCreateCommandPool(vulkan_state.device, &pool_info, NULL,
                                           &vulkan_state.command_pool);
-    if (result != VK_SUCCESS) {
-        char buf[1024];
-        vulkan_result_to_string(buf, result);
-        FC_ERROR("Failed to create framebuffer: %s", buf);
-    }
+    VERIFY(result);
 }
 
 static void vulkan_create_command_buffers(void)
@@ -972,11 +932,7 @@ static void vulkan_create_command_buffers(void)
 
     VkResult result = vkAllocateCommandBuffers(vulkan_state.device, &alloc_info,
                                         vulkan_state.command_buffers);
-    if (result != VK_SUCCESS) {
-        char buf[1024];
-        vulkan_result_to_string(buf, result);
-        FC_ERROR("Failed to allocate command buffers: %s", buf);
-    }
+    VERIFY(result);
 }
 
 static void vulkan_record_command_buffer(VkCommandBuffer command_buffer, u32 image_index)
@@ -987,11 +943,7 @@ static void vulkan_record_command_buffer(VkCommandBuffer command_buffer, u32 ima
     begin_info.pInheritanceInfo = NULL;
 
     VkResult result = vkBeginCommandBuffer(command_buffer, &begin_info);
-    if (result != VK_SUCCESS) {
-        char buf[1024];
-        vulkan_result_to_string(buf, result);
-        FC_ERROR("Failed to begin recording command buffer: %s", buf);
-    }
+    VERIFY(result);
 
     VkRenderPassBeginInfo render_pass_info = {0};
     render_pass_info.sType               = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -1029,11 +981,7 @@ static void vulkan_record_command_buffer(VkCommandBuffer command_buffer, u32 ima
     vkCmdEndRenderPass(command_buffer);
 
     result = vkEndCommandBuffer(command_buffer);
-    if (result != VK_SUCCESS) {
-        char buf[1024];
-        vulkan_result_to_string(buf, result);
-        FC_ERROR("Failed to record command buffer: %s", buf);
-    }
+    VERIFY(result);
 }
 
 static void vulkan_create_sync_objects(void)
@@ -1049,27 +997,15 @@ static void vulkan_create_sync_objects(void)
         VkResult result;
         result = vkCreateSemaphore(vulkan_state.device, &semaphore_info,
                                    NULL, &vulkan_state.synchronization_primitives.image_available_semaphores[i]);
-        if (result != VK_SUCCESS) {
-            char buf[1024];
-            vulkan_result_to_string(buf, result);
-            FC_ERROR("Failed to create semaphore: %s", buf);
-        }
+        VERIFY(result);
 
         result = vkCreateSemaphore(vulkan_state.device, &semaphore_info,
                                    NULL, &vulkan_state.synchronization_primitives.render_finished_semaphores[i]);
-        if (result != VK_SUCCESS) {
-            char buf[1024];
-            vulkan_result_to_string(buf, result);
-            FC_ERROR("Failed to create semaphore: %s", buf);
-        }
+        VERIFY(result);
 
         result = vkCreateFence(vulkan_state.device, &fence_info,
                                NULL, &vulkan_state.synchronization_primitives.in_flight_fences[i]);
-        if (result != VK_SUCCESS) {
-            char buf[1024];
-            vulkan_result_to_string(buf, result);
-            FC_ERROR("Failed to create fence: %s", buf);
-        }
+        VERIFY(result);
     }
 }
 
@@ -1115,12 +1051,7 @@ void vulkan_draw_frame(X11State* x11_state)
         return;
     }
 
-    if (result != VK_SUCCESS) {
-        char buf[1024];
-        vulkan_result_to_string(buf, result);
-        FC_ERROR("Failed to acquire swap chain image: %s", buf);
-        return;
-    }
+    VERIFY(result);
 
     vkResetFences(vulkan_state.device, 1,
                   &vulkan_state.synchronization_primitives.in_flight_fences[vulkan_state.current_frame]);
@@ -1154,11 +1085,7 @@ void vulkan_draw_frame(X11State* x11_state)
 
     result = vkQueueSubmit(vulkan_state.graphics_queue, 1, &submit_info,
                                     vulkan_state.synchronization_primitives.in_flight_fences[vulkan_state.current_frame]);
-    if (result != VK_SUCCESS) {
-        char buf[1024];
-        vulkan_result_to_string(buf, result);
-        FC_ERROR("Failed to submit draw command buffer: %s", buf);
-    }
+    VERIFY(result);
 
     VkPresentInfoKHR present_info = {0};
     present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -1177,10 +1104,8 @@ void vulkan_draw_frame(X11State* x11_state)
         result == VK_SUBOPTIMAL_KHR || vulkan_state.framebuffer_resized) {
         vulkan_state.framebuffer_resized = false;
         vulkan_recreate_swap_chain(x11_state);
-    } else if (result != VK_SUCCESS) {
-        char buf[1024];
-        vulkan_result_to_string(buf, result);
-        FC_ERROR("Failed to present swap chain image: %s", buf);
+    } else {
+        VERIFY(result);
     }
 
     vulkan_state.current_frame = (vulkan_state.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
@@ -1220,7 +1145,7 @@ void x11_vulkan_init(X11State* x11_state)
 void x11_vulkan_deinit(X11State* x11_state)
 {
     FC_INFO("Deinitializing Vulkan");
-    (void)x11_state;
+    UNUSED(x11_state);
 
     vulkan_clean_up_swap_chain();
 

@@ -2,6 +2,7 @@
 
 #include "finch/core/core.h"
 #include "finch/utils/string.h"
+#include "finch/utils/utils.h"
 #include "finch/core/events.h"
 #include "finch/application/application.h"
 
@@ -466,7 +467,7 @@ void platform_init(ApplicationState* application_state)
 
 void platform_deinit(ApplicationState* application_state)
 {
-    (void)application_state;
+    UNUSED(application_state);
     x11_vulkan_deinit(&x11_state);
     x11_deinit(&x11_state);
 }

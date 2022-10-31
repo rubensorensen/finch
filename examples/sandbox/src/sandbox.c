@@ -2,6 +2,7 @@
 #include "finch/core/core.h"
 #include "finch/log/log.h"
 #include "finch/utils/string.h"
+#include "finch/utils/utils.h"
 #include "finch/platform/platform.h"
 
 #include <math.h>
@@ -81,7 +82,7 @@ void fc_application_update(ApplicationState* application_state, f64 dt)
 
 void fc_application_deinit(ApplicationState* application_state)
 {
-    (void)application_state;
+    UNUSED(application_state);
 
     free(app_data);
 }
