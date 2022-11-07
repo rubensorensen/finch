@@ -26,19 +26,27 @@ typedef struct _VulkanSwapChainSupportDetails {
     VkPresentModeKHR         present_modes[1024];
 } VulkanSwapChainSupportDetails;
 
-typedef struct _VulkanSwapChainInfo {
-    VkSwapchainKHR swap_chain;
-    VkFormat       image_format;
-    VkExtent2D     extent;
-    
-    VkImage        images[100];
-    u32            images_count;
+typedef struct _VulkanFramebuffers {
+    VkFramebuffer framebuffers[100];
+    u32           count;    
+} VulkanFramebuffers;
 
-    VkImageView    image_views[100];
-    u32            image_views_count;
-    
-    VkFramebuffer  framebuffers[100];
-    u32            framebuffers_count;    
+typedef struct _VulkanImageViews {
+    VkImageView views[100];
+    u32         count;    
+} VulkanImageViews;
+
+typedef struct _VulkanImages {
+    VkImage images[100];
+    u32     count;    
+} VulkanImages;
+
+typedef struct _VulkanSwapChainInfo {
+    VkSwapchainKHR     swap_chain;
+    VkFormat           image_format;
+    VkExtent2D         extent;
+    VulkanImages       images;
+    VulkanImageViews   image_views;
 } VulkanSwapChainInfo;
 
 typedef struct _VulkanSyncPrimitives {    
@@ -47,7 +55,7 @@ typedef struct _VulkanSyncPrimitives {
     VkFence     in_flight_fences[MAX_FRAMES_IN_FLIGHT];
 } VulkanSyncPrimitives;
 
-typedef struct _VulkanQueues {
+typedef struct _VulkanQueues {    
     VkQueue          graphics;
     VkQueue          present;
 } VulkanQueues;
@@ -56,9 +64,9 @@ typedef struct _VulkanState {
     VkInstance       instance;
     VkSurfaceKHR     surface;
     
-    VkPhysicalDevice physical_device;
-    VkDevice         device;
-    VulkanQueues     queues;
+    VkPhysicalDevice         physical_device;
+    VkDevice                 device;
+    VulkanQueues             queues;
 
     VkRenderPass     render_pass;
     VkPipelineLayout pipeline_layout;
@@ -66,10 +74,11 @@ typedef struct _VulkanState {
     VkCommandPool    command_pool;
     VkCommandBuffer  command_buffers[MAX_FRAMES_IN_FLIGHT];
 
-    VulkanSyncPrimitives     synchronization_primitives;
-    VulkanSwapChainInfo      swap_chain_info;
-    u32                      current_frame;
-    b32                      framebuffer_resized;
+    VulkanSyncPrimitives          synchronization_primitives;
+    VulkanSwapChainInfo           swap_chain_info;
+    VulkanFramebuffers            framebuffers;
+    u32                           current_frame;
+    b32                           framebuffer_resized;
 } VulkanState;
  
 b32 vulkan_queue_family_indices_is_complete(VulkanQueueFamilyIndices* indices);
