@@ -60,21 +60,31 @@ typedef struct _VulkanQueues {
     VkQueue          present;
 } VulkanQueues;
 
+typedef struct _VulkanPipeline {
+    VkPipelineLayout layout;
+    VkPipeline       graphics;    
+} VulkanPipeline;
+
+typedef struct _VulkanCommandBuffers {
+    VkCommandBuffer buffers[100];
+    u32             count;
+} VulkanCommandBuffers;
+
 typedef struct _VulkanState {    
     VkInstance       instance;
     VkSurfaceKHR     surface;
     
     VkPhysicalDevice         physical_device;
     VkDevice                 device;
+    VulkanQueueFamilyIndices indices;
     VulkanQueues             queues;
 
-    VkRenderPass     render_pass;
-    VkPipelineLayout pipeline_layout;
-    VkPipeline       graphics_pipeline;
-    VkCommandPool    command_pool;
-    VkCommandBuffer  command_buffers[MAX_FRAMES_IN_FLIGHT];
+    VkRenderPass         render_pass;
+    VulkanPipeline       pipeline;
+    VkCommandPool        command_pool;
+    VulkanCommandBuffers command_buffers;
 
-    VulkanSyncPrimitives          synchronization_primitives;
+    VulkanSyncPrimitives          sync_objs;
     VulkanSwapChainInfo           swap_chain_info;
     VulkanFramebuffers            framebuffers;
     u32                           current_frame;

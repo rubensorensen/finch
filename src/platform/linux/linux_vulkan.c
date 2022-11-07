@@ -214,11 +214,6 @@ b32 check_instance_extension_support() {
     
     vkEnumerateInstanceExtensionProperties(NULL, &extension_count, supported_extensions);
 
-    FC_TRACE("Supported vulkan instance extensions:");
-    for (u32 i = 0; i < extension_count; ++i) {
-        FC_TRACE("|-- %s", supported_extensions[i].extensionName);
-    }
-
     for (u32 i = 0; i < instance_extensions_count; ++i) {
         b32 extension_found = false;
         for (u32 j = 0; j < extension_count; ++j) {
@@ -250,11 +245,6 @@ b32 check_validation_layer_support() {
     }
     
     vkEnumerateInstanceLayerProperties(&layer_count, supported_layers);
-
-    FC_TRACE("Supported vulkan validation layers:");
-    for (u32 i = 0; i < layer_count; ++i) {
-        FC_TRACE("|-- %s", supported_layers[i].layerName);
-    }
 
     for (u32 i = 0; i < validation_layers_count; ++i) {
         b32 layer_found = false;
@@ -330,7 +320,8 @@ static VkSurfaceKHR vulkan_create_surface(X11State* x11_state, VkInstance instan
     return surface;
 }
 
-static VulkanQueueFamilyIndices vulkan_find_queue_families(VkPhysicalDevice device)
+static VulkanQueueFamilyIndices vulkan_find_queue_families(VkSurfaceKHR surface,
+                                                           VkPhysicalDevice device)
 {
     VulkanQueueFamilyIndices indices = {0};
 
@@ -354,8 +345,7 @@ static VulkanQueueFamilyIndices vulkan_find_queue_families(VkPhysicalDevice devi
         }
 
         VkBool32 present_support = false;
-        vkGetPhysicalDeviceSurfaceSupportKHR(device, i,
-                                             vulkan_state.surface, &present_support);
+        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &present_support);
         if (present_support) {
             indices.has_present_family = true;
             indices.present_family_index = i;
@@ -380,11 +370,6 @@ b32 vulkan_check_device_extension_support(VkPhysicalDevice device)
     
     vkEnumerateDeviceExtensionProperties(device, NULL, &extension_count, supported_extensions);
 
-    FC_TRACE("Supported device extensions:");
-    for (u32 i = 0; i < extension_count; ++i) {
-        FC_TRACE("|-- %s", supported_extensions[i].extensionName);
-    }
-
     for (u32 i = 0; i < device_extensions_count; ++i) {
         b32 extension_found = false;
         for (u32 j = 0; j < extension_count; ++j) {
@@ -405,28 +390,27 @@ b32 vulkan_check_device_extension_support(VkPhysicalDevice device)
     return true;
 }
 
-static VulkanSwapChainSupportDetails vulkan_query_swap_chain_support(VkPhysicalDevice device)
+static VulkanSwapChainSupportDetails vulkan_query_swap_chain_support(VkSurfaceKHR surface,
+                                                                     VkPhysicalDevice device)
 {
     VulkanSwapChainSupportDetails details = {0};
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, vulkan_state.surface, &details.capabilities);
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
 
     u32 format_count;
-    vkGetPhysicalDeviceSurfaceFormatsKHR(device, vulkan_state.surface,
-                                         &format_count, NULL);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &format_count, NULL);
     if (format_count != 0) {
         // TODO: Assert that format_count is not greater than max format count size
         details.format_count = format_count;
-        vkGetPhysicalDeviceSurfaceFormatsKHR(device, vulkan_state.surface,
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface,
                                              &format_count, details.formats);
     }
 
     u32 present_mode_count;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(device, vulkan_state.surface,
-                                              &present_mode_count, NULL);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &present_mode_count, NULL);
     if (present_mode_count != 0) {
         // TODO: Assert that present_mode_count is not greater than max present_mode_count size
         details.present_mode_count = present_mode_count;
-        vkGetPhysicalDeviceSurfacePresentModesKHR(device, vulkan_state.surface,
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface,
                                                   &present_mode_count, details.present_modes);
     }
 
@@ -477,7 +461,7 @@ static VkExtent2D vulkan_choose_swap_extent(X11State* x11_state,
     return actual_extent;
 }
 
-static VulkanImageViews vulkan_create_image_views(VulkanImages images, VkFormat format)
+static VulkanImageViews vulkan_create_image_views(VkDevice dev, VulkanImages images, VkFormat format)
 {
     VulkanImageViews image_views = {0};
     image_views.count = images.count;
@@ -500,7 +484,7 @@ static VulkanImageViews vulkan_create_image_views(VulkanImages images, VkFormat 
         create_info.subresourceRange.baseArrayLayer = 0;
         create_info.subresourceRange.layerCount     = 1;
 
-        VkResult result = vkCreateImageView(vulkan_state.device, &create_info,
+        VkResult result = vkCreateImageView(dev, &create_info,
                                             NULL, &image_views.views[i]);
         VERIFY(result);
     }
@@ -508,38 +492,43 @@ static VulkanImageViews vulkan_create_image_views(VulkanImages images, VkFormat 
     return image_views;
 }
 
-static VulkanFramebuffers vulkan_create_framebuffers(void)
+static VulkanFramebuffers vulkan_create_framebuffers(VkDevice device,
+                                                     VkRenderPass render_pass,
+                                                     VulkanImageViews image_views,
+                                                     VkExtent2D extent)
 {
     VulkanFramebuffers framebuffers = {0};
-    framebuffers.count = vulkan_state.swap_chain_info.image_views.count;
+    framebuffers.count = image_views.count;
 
-    for (u32 i = 0; i < vulkan_state.swap_chain_info.image_views.count; ++i) {
-        VkImageView attachments[] = { vulkan_state.swap_chain_info.image_views.views[i] };
+    for (u32 i = 0; i < image_views.count; ++i) {
+        VkImageView attachments[] = { image_views.views[i] };
 
         VkFramebufferCreateInfo framebuffer_info = {0};
-        framebuffer_info.sType                   = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        framebuffer_info.renderPass              = vulkan_state.render_pass;
-        framebuffer_info.attachmentCount         = 1;
-        framebuffer_info.pAttachments            = attachments;
-        framebuffer_info.width                   = vulkan_state.swap_chain_info.extent.width;
-        framebuffer_info.height                  = vulkan_state.swap_chain_info.extent.height;
-        framebuffer_info.layers                  = 1;
+        framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        framebuffer_info.renderPass      = render_pass;
+        framebuffer_info.attachmentCount = 1;
+        framebuffer_info.pAttachments    = attachments;
+        framebuffer_info.width           = extent.width;
+        framebuffer_info.height          = extent.height;
+        framebuffer_info.layers          = 1;
 
-        VkResult result = vkCreateFramebuffer(vulkan_state.device, &framebuffer_info,
-                                              NULL, &framebuffers.framebuffers[i]);
+        VkResult result = vkCreateFramebuffer(device, &framebuffer_info, NULL,
+                                              &framebuffers.framebuffers[i]);
+        
         VERIFY(result);
     }
 
     return framebuffers;
 }
 
-static VulkanSwapChainInfo vulkan_create_swap_chain(X11State* x11_state)
-{
-    VulkanQueueFamilyIndices indices =
-        vulkan_find_queue_families(vulkan_state.physical_device);    
-    
+static VulkanSwapChainInfo vulkan_create_swap_chain(X11State* x11_state,
+                                                    VkSurfaceKHR surface,
+                                                    VkPhysicalDevice phy_dev,
+                                                    VkDevice dev,
+                                                    VulkanQueueFamilyIndices indices)
+{   
     VulkanSwapChainSupportDetails swap_chain_support =
-        vulkan_query_swap_chain_support(vulkan_state.physical_device);
+        vulkan_query_swap_chain_support(surface, phy_dev);
     
     VkSurfaceFormatKHR surface_format =
         vulkan_choose_swap_surface_format(swap_chain_support.formats,
@@ -563,7 +552,7 @@ static VulkanSwapChainInfo vulkan_create_swap_chain(X11State* x11_state)
 
     VkSwapchainCreateInfoKHR create_info = {0};
     create_info.sType                    = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-    create_info.surface                  = vulkan_state.surface;
+    create_info.surface                  = surface;
     create_info.minImageCount            = image_count;
     create_info.imageFormat              = surface_format.format;
     create_info.imageColorSpace          = surface_format.colorSpace;
@@ -587,33 +576,33 @@ static VulkanSwapChainInfo vulkan_create_swap_chain(X11State* x11_state)
     create_info.oldSwapchain   = VK_NULL_HANDLE;
 
     VulkanSwapChainInfo swap_chain_info;
-    VkResult result = vkCreateSwapchainKHR(vulkan_state.device, &create_info,
-                                     NULL, &swap_chain_info.swap_chain);
+    VkResult result = vkCreateSwapchainKHR(dev, &create_info, NULL,
+                                           &swap_chain_info.swap_chain);
     VERIFY(result);
     
-    vkGetSwapchainImagesKHR(vulkan_state.device, swap_chain_info.swap_chain, &image_count, NULL);
+    vkGetSwapchainImagesKHR(dev, swap_chain_info.swap_chain, &image_count, NULL);
     
     swap_chain_info.images.count = image_count;
-    vkGetSwapchainImagesKHR(vulkan_state.device, swap_chain_info.swap_chain,
+    vkGetSwapchainImagesKHR(dev, swap_chain_info.swap_chain,
                             &image_count, swap_chain_info.images.images);
 
     swap_chain_info.image_format = surface_format.format;
     swap_chain_info.extent       = extent;
-    swap_chain_info.image_views  = vulkan_create_image_views(swap_chain_info.images, surface_format.format);
+    swap_chain_info.image_views  = vulkan_create_image_views(dev, swap_chain_info.images, surface_format.format);
     
     return swap_chain_info;
 }
 
-static b32 vulkan_is_device_suitable(VkPhysicalDevice device)
+static b32 vulkan_is_device_suitable(VkSurfaceKHR surface, VkPhysicalDevice device)
 {
-    VulkanQueueFamilyIndices indices = vulkan_find_queue_families(device);
+    VulkanQueueFamilyIndices indices = vulkan_find_queue_families(surface, device);
 
     b32 device_extensions_supported = vulkan_check_device_extension_support(device);
 
     b32 swap_chain_support_adequate = false;
     if (device_extensions_supported) {
         VulkanSwapChainSupportDetails swap_chain_support = 
-            vulkan_query_swap_chain_support(device);
+            vulkan_query_swap_chain_support(surface, device);
         swap_chain_support_adequate = (swap_chain_support.format_count > 0 &&
                                        swap_chain_support.present_mode_count > 0);
     }
@@ -635,7 +624,9 @@ static b32 vulkan_is_device_suitable(VkPhysicalDevice device)
             vulkan_queue_family_indices_is_complete(&indices));
 }
 
-static VkPhysicalDevice vulkan_pick_physical_device(VkInstance instance)
+static VkPhysicalDevice vulkan_pick_physical_device(VkInstance instance,
+                                                    VkSurfaceKHR surface,
+                                                    VulkanQueueFamilyIndices* indices)
 {
     VkPhysicalDevice physical_device = VK_NULL_HANDLE;
     
@@ -656,8 +647,9 @@ static VkPhysicalDevice vulkan_pick_physical_device(VkInstance instance)
     vkEnumeratePhysicalDevices(instance, &device_count, physical_devices);
 
     for (u32 i = 0; i < device_count; ++i) {
-        if (vulkan_is_device_suitable(physical_devices[i])) {
+        if (vulkan_is_device_suitable(surface, physical_devices[i])) {
             physical_device = physical_devices[i];
+            *indices = vulkan_find_queue_families(surface, physical_device);
             break;
         }
     }
@@ -676,11 +668,9 @@ static VkPhysicalDevice vulkan_pick_physical_device(VkInstance instance)
 }
 
 static void vulkan_setup_logical_device(VkPhysicalDevice physical_device,
+                                        VulkanQueueFamilyIndices indices,
                                         VkDevice* logical_device, VulkanQueues* queues)
 {
-    VulkanQueueFamilyIndices indices =
-        vulkan_find_queue_families(physical_device);
-
     f32                     queue_priority = 1.0f;
     VkDeviceQueueCreateInfo queue_create_infos[100];
 
@@ -742,7 +732,7 @@ static void vulkan_setup_logical_device(VkPhysicalDevice physical_device,
                      0, &queues->present);
 }
 
-static VkShaderModule vulkan_create_shader_module(char* shader_code,
+static VkShaderModule vulkan_create_shader_module(VkDevice dev, char* shader_code,
                                                   u32   shader_code_size)
 {
     VkShaderModuleCreateInfo create_info = {0};
@@ -751,17 +741,17 @@ static VkShaderModule vulkan_create_shader_module(char* shader_code,
     create_info.pCode                    = (u32*)shader_code;
 
     VkShaderModule shader_module;
-    VkResult       result = vkCreateShaderModule(vulkan_state.device, &create_info,
-                                           NULL, &shader_module);
+    VkResult result = vkCreateShaderModule(dev, &create_info, NULL, &shader_module);
     VERIFY(result);
         
     return shader_module;
 }
 
-static void vulkan_create_render_pass()
+static VkRenderPass vulkan_create_render_pass(VkDevice device, VkFormat image_format)
 {
+    
     VkAttachmentDescription color_attachment = {0};
-    color_attachment.format                  = vulkan_state.swap_chain_info.image_format;
+    color_attachment.format                  = image_format;
     color_attachment.samples                 = VK_SAMPLE_COUNT_1_BIT;
     color_attachment.loadOp                  = VK_ATTACHMENT_LOAD_OP_CLEAR;
     color_attachment.storeOp                 = VK_ATTACHMENT_STORE_OP_STORE;
@@ -796,15 +786,19 @@ static void vulkan_create_render_pass()
     render_pass_info.dependencyCount = 1;
     render_pass_info.pDependencies   = &dependency;
 
-    VkResult result = vkCreateRenderPass(vulkan_state.device, &render_pass_info,
-                                         NULL, &vulkan_state.render_pass);
+    VkRenderPass render_pass;
+    VkResult result = vkCreateRenderPass(device, &render_pass_info,
+                                         NULL, &render_pass);
     VERIFY(result);
 
+    return render_pass;
 }
 
-static void vulkan_create_graphics_pipeline()
+static VulkanPipeline vulkan_create_graphics_pipeline(VkDevice device,
+                                                      VkRenderPass render_pass)
 {
-
+    VulkanPipeline pipeline;
+    
     // Prepare shaders
     u32  max_shader_code_size    = 1024 * 1024;
     char vertex_shader_code[max_shader_code_size];
@@ -818,16 +812,15 @@ static void vulkan_create_graphics_pipeline()
                                                      "./assets/shaders/frag.spv");
 
     VkShaderModule vertex_shader_module   = 
-        vulkan_create_shader_module(vertex_shader_code, vertex_shader_code_size);
+        vulkan_create_shader_module(device, vertex_shader_code, vertex_shader_code_size);
     VkShaderModule fragment_shader_module = 
-        vulkan_create_shader_module(fragment_shader_code, fragment_shader_code_size);
+        vulkan_create_shader_module(device, fragment_shader_code, fragment_shader_code_size);
 
     VkPipelineShaderStageCreateInfo vertex_shader_stage_info = {0};
-    vertex_shader_stage_info.sType                           = 
-        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    vertex_shader_stage_info.stage                           = VK_SHADER_STAGE_VERTEX_BIT;
-    vertex_shader_stage_info.module                          = vertex_shader_module;
-    vertex_shader_stage_info.pName                           = "main";
+    vertex_shader_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    vertex_shader_stage_info.stage  = VK_SHADER_STAGE_VERTEX_BIT;
+    vertex_shader_stage_info.module = vertex_shader_module;
+    vertex_shader_stage_info.pName  = "main";
 
     VkPipelineShaderStageCreateInfo fragment_shader_stage_info = {0};
     fragment_shader_stage_info.sType  = 
@@ -846,34 +839,35 @@ static void vulkan_create_graphics_pipeline()
         VK_DYNAMIC_STATE_VIEWPORT,
         VK_DYNAMIC_STATE_SCISSOR
     };
-    u32 dynamic_states_count        = sizeof(dynamic_states) / sizeof(dynamic_states[0]);
+    
+    u32 dynamic_states_count = sizeof(dynamic_states) / sizeof(dynamic_states[0]);
 
     VkPipelineDynamicStateCreateInfo dynamic_state = {0};
-    dynamic_state.sType                            = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dynamic_state.dynamicStateCount                = dynamic_states_count;
-    dynamic_state.pDynamicStates                   = dynamic_states;
+    dynamic_state.sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dynamic_state.dynamicStateCount = dynamic_states_count;
+    dynamic_state.pDynamicStates    = dynamic_states;
 
     // Prepare vertex input
     VkPipelineVertexInputStateCreateInfo vertex_input_info = {0};
-    vertex_input_info.sType                                = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertex_input_info.vertexBindingDescriptionCount        = 0;
-    vertex_input_info.pVertexBindingDescriptions           = NULL;
-    vertex_input_info.vertexAttributeDescriptionCount      = 0;
-    vertex_input_info.pVertexAttributeDescriptions         = NULL;
+    vertex_input_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vertex_input_info.vertexBindingDescriptionCount   = 0;
+    vertex_input_info.pVertexBindingDescriptions      = NULL;
+    vertex_input_info.vertexAttributeDescriptionCount = 0;
+    vertex_input_info.pVertexAttributeDescriptions    = NULL;
 
     // Prepare input assembly
     VkPipelineInputAssemblyStateCreateInfo input_assembly = {0};
-    input_assembly.sType                                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    input_assembly.topology                               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    input_assembly.primitiveRestartEnable                 = VK_FALSE;
+    input_assembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    input_assembly.primitiveRestartEnable = VK_FALSE;
 
     // Using dynamic viewport so no need to set anything
     VkPipelineViewportStateCreateInfo viewport_state = {0};
-    viewport_state.sType                             = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewport_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
 
     // Rasterizer
     VkPipelineRasterizationStateCreateInfo rasterizer = {0};
-    rasterizer.sType                                  = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
     rasterizer.depthClampEnable                       = VK_FALSE;
     rasterizer.rasterizerDiscardEnable                = VK_FALSE;
     rasterizer.polygonMode                            = VK_POLYGON_MODE_FILL;
@@ -885,9 +879,9 @@ static void vulkan_create_graphics_pipeline()
     rasterizer.depthBiasClamp                         = 0.0f;
     rasterizer.depthBiasSlopeFactor                   = 0.0f;
 
-    // Multisampling (Disabled for       now)
+    // Multisampling (Disabled for now)
     VkPipelineMultisampleStateCreateInfo multisampling = {0};
-    multisampling.sType                 = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     multisampling.sampleShadingEnable   = VK_FALSE;
     multisampling.rasterizationSamples  = VK_SAMPLE_COUNT_1_BIT;
     multisampling.minSampleShading      = 1.0f;
@@ -896,21 +890,21 @@ static void vulkan_create_graphics_pipeline()
     multisampling.alphaToOneEnable      = VK_FALSE;
 
     // Depth and stencil testing
-    // TODO: do this
+    // TODO: This
 
     // Color blending
     VkPipelineColorBlendAttachmentState color_blend_attachment = {0};
-    color_blend_attachment.colorWriteMask                      = (VK_COLOR_COMPONENT_R_BIT |
+    color_blend_attachment.colorWriteMask = (VK_COLOR_COMPONENT_R_BIT |
                                              VK_COLOR_COMPONENT_G_BIT |
                                              VK_COLOR_COMPONENT_B_BIT |
                                              VK_COLOR_COMPONENT_A_BIT);
-    color_blend_attachment.blendEnable                         = VK_FALSE;
-    color_blend_attachment.srcColorBlendFactor                 = VK_BLEND_FACTOR_ONE;
-    color_blend_attachment.dstColorBlendFactor                 = VK_BLEND_FACTOR_ZERO;
-    color_blend_attachment.colorBlendOp                        = VK_BLEND_OP_ADD;
-    color_blend_attachment.srcAlphaBlendFactor                 = VK_BLEND_FACTOR_ONE;
-    color_blend_attachment.dstAlphaBlendFactor                 = VK_BLEND_FACTOR_ZERO;
-    color_blend_attachment.alphaBlendOp                        = VK_BLEND_OP_ADD;
+    color_blend_attachment.blendEnable         = VK_FALSE;
+    color_blend_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+    color_blend_attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+    color_blend_attachment.colorBlendOp        = VK_BLEND_OP_ADD;
+    color_blend_attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    color_blend_attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    color_blend_attachment.alphaBlendOp        = VK_BLEND_OP_ADD;
 
     VkPipelineColorBlendStateCreateInfo color_blending = {0};
     color_blending.sType             = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
@@ -925,14 +919,15 @@ static void vulkan_create_graphics_pipeline()
 
     // Pipeline layout
     VkPipelineLayoutCreateInfo pipeline_layout_info = {0};
-    pipeline_layout_info.sType                      = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipeline_layout_info.setLayoutCount             = 0;
-    pipeline_layout_info.pSetLayouts                = NULL;
-    pipeline_layout_info.pushConstantRangeCount     = 0;
-    pipeline_layout_info.pPushConstantRanges        = NULL;
+    pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipeline_layout_info.setLayoutCount         = 0;
+    pipeline_layout_info.pSetLayouts            = NULL;
+    pipeline_layout_info.pushConstantRangeCount = 0;
+    pipeline_layout_info.pPushConstantRanges    = NULL;
 
-    VkResult result = vkCreatePipelineLayout(vulkan_state.device, &pipeline_layout_info,
-                                             NULL, &vulkan_state.pipeline_layout);
+    VkResult result = vkCreatePipelineLayout(device, &pipeline_layout_info,
+                                             NULL, &pipeline.layout);
+    
     VERIFY(result);
 
     // Pipeline creation
@@ -950,50 +945,58 @@ static void vulkan_create_graphics_pipeline()
     pipeline_info.pColorBlendState    = &color_blending;
     pipeline_info.pDynamicState       = &dynamic_state;
 
-    pipeline_info.layout = vulkan_state.pipeline_layout;
+    pipeline_info.layout = pipeline.layout;
 
-    pipeline_info.renderPass = vulkan_state.render_pass;
+    pipeline_info.renderPass = render_pass;
     pipeline_info.subpass    = 0;
 
     pipeline_info.basePipelineHandle = VK_NULL_HANDLE;
     pipeline_info.basePipelineIndex  = -1;
 
-    result = vkCreateGraphicsPipelines(vulkan_state.device, VK_NULL_HANDLE,
-                                                1, &pipeline_info, NULL,
-                                                &vulkan_state.graphics_pipeline);
+    result = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipeline_info, NULL,
+                                       &pipeline.graphics);
     VERIFY(result);
 
-    vkDestroyShaderModule(vulkan_state.device, vertex_shader_module, NULL);
-    vkDestroyShaderModule(vulkan_state.device, fragment_shader_module, NULL);
+    vkDestroyShaderModule(device, vertex_shader_module, NULL);
+    vkDestroyShaderModule(device, fragment_shader_module, NULL);
 
+    return pipeline;
 }
 
-static void vulkan_create_command_pool(void)
+static VkCommandPool vulkan_create_command_pool(VkDevice dev,
+                                                VulkanQueueFamilyIndices indices)
 {
-    VulkanQueueFamilyIndices indices =
-        vulkan_find_queue_families(vulkan_state.physical_device);
-
     VkCommandPoolCreateInfo pool_info = {0};
     pool_info.sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     pool_info.flags            = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     pool_info.queueFamilyIndex = indices.graphics_family_index;
 
-    VkResult result = vkCreateCommandPool(vulkan_state.device, &pool_info, NULL,
-                                          &vulkan_state.command_pool);
+    VkCommandPool command_pool;
+    VkResult result = vkCreateCommandPool(dev, &pool_info, NULL,
+                                          &command_pool);
     VERIFY(result);
+
+    return command_pool;
 }
 
-static void vulkan_create_command_buffers(void)
+static VulkanCommandBuffers vulkan_create_command_buffers(VkDevice device,
+                                                          VkCommandPool command_pool,
+                                                          u32 count)
 {
+    VulkanCommandBuffers command_buffers = {0};
+    command_buffers.count = count;
+    
     VkCommandBufferAllocateInfo alloc_info = {0};
     alloc_info.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    alloc_info.commandPool        = vulkan_state.command_pool;
+    alloc_info.commandPool        = command_pool;
     alloc_info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    alloc_info.commandBufferCount = (u32)MAX_FRAMES_IN_FLIGHT;
+    alloc_info.commandBufferCount = count;
 
-    VkResult result = vkAllocateCommandBuffers(vulkan_state.device, &alloc_info,
-                                               vulkan_state.command_buffers);
+    VkResult result = vkAllocateCommandBuffers(device, &alloc_info,
+                                               command_buffers.buffers);
     VERIFY(result);
+
+    return command_buffers;
 }
 
 static void vulkan_record_command_buffer(VkCommandBuffer command_buffer, u32 image_index)
@@ -1020,7 +1023,7 @@ static void vulkan_record_command_buffer(VkCommandBuffer command_buffer, u32 ima
 
     vkCmdBeginRenderPass(command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                      vulkan_state.graphics_pipeline);
+                      vulkan_state.pipeline.graphics);
 
     VkViewport viewport = {0};
     viewport.x = 0.0f;
@@ -1045,8 +1048,9 @@ static void vulkan_record_command_buffer(VkCommandBuffer command_buffer, u32 ima
     VERIFY(result);
 }
 
-static void vulkan_create_sync_objects(void)
+static VulkanSyncPrimitives vulkan_create_sync_objects(VkDevice dev)
 {
+    VulkanSyncPrimitives sync_objs = {0};
     VkSemaphoreCreateInfo semaphore_info = {0};
     semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
@@ -1056,31 +1060,33 @@ static void vulkan_create_sync_objects(void)
 
     for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
         VkResult result;
-        result = vkCreateSemaphore(vulkan_state.device, &semaphore_info,
-                                   NULL, &vulkan_state.synchronization_primitives.image_available_semaphores[i]);
+        result = vkCreateSemaphore(dev, &semaphore_info,
+                                   NULL, &sync_objs.image_available_semaphores[i]);
         VERIFY(result);
 
-        result = vkCreateSemaphore(vulkan_state.device, &semaphore_info,
-                                   NULL, &vulkan_state.synchronization_primitives.render_finished_semaphores[i]);
+        result = vkCreateSemaphore(dev, &semaphore_info,
+                                   NULL, &sync_objs.render_finished_semaphores[i]);
         VERIFY(result);
 
-        result = vkCreateFence(vulkan_state.device, &fence_info,
-                               NULL, &vulkan_state.synchronization_primitives.in_flight_fences[i]);
+        result = vkCreateFence(dev, &fence_info,
+                               NULL, &sync_objs.in_flight_fences[i]);
         VERIFY(result);
     }
+
+    return sync_objs;
 }
 
-static void vulkan_clean_up_swap_chain()
+static void vulkan_clean_up_swap_chain(VulkanState* vulkan_state)
 {
-    for (u32 i = 0; i < vulkan_state.framebuffers.count; ++i) {
-        vkDestroyFramebuffer(vulkan_state.device, vulkan_state.framebuffers.framebuffers[i], NULL);
+    for (u32 i = 0; i < vulkan_state->framebuffers.count; ++i) {
+        vkDestroyFramebuffer(vulkan_state->device, vulkan_state->framebuffers.framebuffers[i], NULL);
     }
 
-    for (u32 i = 0; i < vulkan_state.swap_chain_info.image_views.count; ++i) {
-        vkDestroyImageView(vulkan_state.device, vulkan_state.swap_chain_info.image_views.views[i], NULL);
+    for (u32 i = 0; i < vulkan_state->swap_chain_info.image_views.count; ++i) {
+        vkDestroyImageView(vulkan_state->device, vulkan_state->swap_chain_info.image_views.views[i], NULL);
     }
 
-    vkDestroySwapchainKHR(vulkan_state.device, vulkan_state.swap_chain_info.swap_chain, NULL);
+    vkDestroySwapchainKHR(vulkan_state->device, vulkan_state->swap_chain_info.swap_chain, NULL);
 }
 
 void vulkan_recreate_swap_chain(X11State* x11_state)
@@ -1088,21 +1094,30 @@ void vulkan_recreate_swap_chain(X11State* x11_state)
     // TODO: Handle minimization! If window is minimized, application should block!
 
     vkDeviceWaitIdle(vulkan_state.device);
-    vulkan_clean_up_swap_chain();
-    vulkan_state.swap_chain_info = vulkan_create_swap_chain(x11_state);
-    vulkan_state.framebuffers = vulkan_create_framebuffers();
+    vulkan_clean_up_swap_chain(&vulkan_state);
+    vulkan_state.swap_chain_info = vulkan_create_swap_chain(x11_state,
+                                                            vulkan_state.surface,
+                                                            vulkan_state.physical_device,
+                                                            vulkan_state.device,
+                                                            vulkan_state.indices);
+    
+    vulkan_state.framebuffers =
+        vulkan_create_framebuffers(vulkan_state.device, vulkan_state.render_pass,
+                                   vulkan_state.swap_chain_info.image_views,
+                                   vulkan_state.swap_chain_info.extent);
+
 }
 
 void vulkan_draw_frame(X11State* x11_state)
 {
     vkWaitForFences(vulkan_state.device, 1,
-                    &vulkan_state.synchronization_primitives.in_flight_fences[vulkan_state.current_frame],
+                    &vulkan_state.sync_objs.in_flight_fences[vulkan_state.current_frame],
                     VK_TRUE, UINT64_MAX);
 
     u32 image_index;
     VkResult result;
     result = vkAcquireNextImageKHR(vulkan_state.device, vulkan_state.swap_chain_info.swap_chain,
-                                   UINT64_MAX, vulkan_state.synchronization_primitives.image_available_semaphores[vulkan_state.current_frame],
+                                   UINT64_MAX, vulkan_state.sync_objs.image_available_semaphores[vulkan_state.current_frame],
                                    VK_NULL_HANDLE, &image_index);
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         vulkan_recreate_swap_chain(x11_state);
@@ -1112,17 +1127,17 @@ void vulkan_draw_frame(X11State* x11_state)
     VERIFY(result);
 
     vkResetFences(vulkan_state.device, 1,
-                  &vulkan_state.synchronization_primitives.in_flight_fences[vulkan_state.current_frame]);
+                  &vulkan_state.sync_objs.in_flight_fences[vulkan_state.current_frame]);
 
-    vkResetCommandBuffer(vulkan_state.command_buffers[vulkan_state.current_frame], 0);
-    vulkan_record_command_buffer(vulkan_state.command_buffers[vulkan_state.current_frame],
+    vkResetCommandBuffer(vulkan_state.command_buffers.buffers[vulkan_state.current_frame], 0);
+    vulkan_record_command_buffer(vulkan_state.command_buffers.buffers[vulkan_state.current_frame],
                                  image_index);
 
     VkSubmitInfo submit_info = {0};
     submit_info.sType        = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
     VkSemaphore wait_semaphores[] = {
-        vulkan_state.synchronization_primitives.image_available_semaphores[vulkan_state.current_frame]
+        vulkan_state.sync_objs.image_available_semaphores[vulkan_state.current_frame]
     };
 
     VkPipelineStageFlags wait_stages[] =
@@ -1132,17 +1147,17 @@ void vulkan_draw_frame(X11State* x11_state)
     submit_info.pWaitSemaphores    = wait_semaphores;
     submit_info.pWaitDstStageMask  = wait_stages;
     submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers    = &vulkan_state.command_buffers[vulkan_state.current_frame];
+    submit_info.pCommandBuffers    = &vulkan_state.command_buffers.buffers[vulkan_state.current_frame];
 
     VkSemaphore signal_semaphores[] = {
-        vulkan_state.synchronization_primitives.render_finished_semaphores[vulkan_state.current_frame]
+        vulkan_state.sync_objs.render_finished_semaphores[vulkan_state.current_frame]
     };
 
     submit_info.signalSemaphoreCount = 1;
     submit_info.pSignalSemaphores = signal_semaphores;
 
     result = vkQueueSubmit(vulkan_state.queues.graphics, 1, &submit_info,
-                                    vulkan_state.synchronization_primitives.in_flight_fences[vulkan_state.current_frame]);
+                                    vulkan_state.sync_objs.in_flight_fences[vulkan_state.current_frame]);
     VERIFY(result);
 
     VkPresentInfoKHR present_info = {0};
@@ -1182,24 +1197,45 @@ void vulkan_wait_for_device_idle(void)
 void x11_vulkan_init(X11State* x11_state)
 {
     FC_INFO("Initializing Vulkan");
-
+    
     vulkan_state.instance = vulkan_create_instance(x11_state);
-    
     vulkan_init_debug_messenger(vulkan_state.instance);
-    
     vulkan_state.surface = vulkan_create_surface(x11_state, vulkan_state.instance);
     
-    vulkan_state.physical_device = vulkan_pick_physical_device(vulkan_state.instance);
-    vulkan_setup_logical_device(vulkan_state.physical_device,
+    vulkan_state.physical_device = vulkan_pick_physical_device(vulkan_state.instance,
+                                                               vulkan_state.surface,
+                                                               &vulkan_state.indices);
+    
+    vulkan_setup_logical_device(vulkan_state.physical_device, vulkan_state.indices,
                                 &vulkan_state.device, &vulkan_state.queues);
     
-    vulkan_state.swap_chain_info = vulkan_create_swap_chain(x11_state);
-    vulkan_create_render_pass();
-    vulkan_create_graphics_pipeline();
-    vulkan_state.framebuffers = vulkan_create_framebuffers();
-    vulkan_create_command_pool();
-    vulkan_create_command_buffers();
-    vulkan_create_sync_objects();
+    vulkan_state.swap_chain_info = vulkan_create_swap_chain(x11_state,
+                                                            vulkan_state.surface,
+                                                            vulkan_state.physical_device,
+                                                            vulkan_state.device,
+                                                            vulkan_state.indices);
+    
+    vulkan_state.render_pass =
+        vulkan_create_render_pass(vulkan_state.device,
+                                  vulkan_state.swap_chain_info.image_format);
+    
+    vulkan_state.pipeline = vulkan_create_graphics_pipeline(vulkan_state.device,
+                                                            vulkan_state.render_pass);
+    
+    vulkan_state.framebuffers =
+        vulkan_create_framebuffers(vulkan_state.device,
+                                   vulkan_state.render_pass,
+                                   vulkan_state.swap_chain_info.image_views,
+                                   vulkan_state.swap_chain_info.extent);
+    
+    vulkan_state.command_pool = vulkan_create_command_pool(vulkan_state.device,
+                                                           vulkan_state.indices);
+    
+    vulkan_state.command_buffers =
+        vulkan_create_command_buffers(vulkan_state.device, vulkan_state.command_pool,
+                                      MAX_FRAMES_IN_FLIGHT);
+    
+    vulkan_state.sync_objs = vulkan_create_sync_objects(vulkan_state.device);    
 
     FC_INFO("Vulkan initialized");
 }
@@ -1209,16 +1245,16 @@ void x11_vulkan_deinit(X11State* x11_state)
     FC_INFO("Deinitializing Vulkan");
     UNUSED(x11_state);
 
-    vulkan_clean_up_swap_chain();
+    vulkan_clean_up_swap_chain(&vulkan_state);
 
-    vkDestroyPipeline(vulkan_state.device, vulkan_state.graphics_pipeline, NULL);
-    vkDestroyPipelineLayout(vulkan_state.device, vulkan_state.pipeline_layout, NULL);
+    vkDestroyPipeline(vulkan_state.device, vulkan_state.pipeline.graphics, NULL);
+    vkDestroyPipelineLayout(vulkan_state.device, vulkan_state.pipeline.layout, NULL);
     vkDestroyRenderPass(vulkan_state.device, vulkan_state.render_pass, NULL);
 
     for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
-        vkDestroySemaphore(vulkan_state.device, vulkan_state.synchronization_primitives.image_available_semaphores[i], NULL);
-        vkDestroySemaphore(vulkan_state.device, vulkan_state.synchronization_primitives.render_finished_semaphores[i], NULL);
-        vkDestroyFence(vulkan_state.device, vulkan_state.synchronization_primitives.in_flight_fences[i], NULL);
+        vkDestroySemaphore(vulkan_state.device, vulkan_state.sync_objs.image_available_semaphores[i], NULL);
+        vkDestroySemaphore(vulkan_state.device, vulkan_state.sync_objs.render_finished_semaphores[i], NULL);
+        vkDestroyFence(vulkan_state.device, vulkan_state.sync_objs.in_flight_fences[i], NULL);
     }
 
     vkDestroyCommandPool(vulkan_state.device, vulkan_state.command_pool, NULL);
