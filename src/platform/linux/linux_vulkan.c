@@ -192,12 +192,12 @@ void vulkan_populate_debug_messenger(VkDebugUtilsMessengerCreateInfoEXT* create_
     create_info->pfnUserCallback = vulkan_debug_callback;
 }
 
-void vulkan_init_debug_messenger(void)
+void vulkan_init_debug_messenger(VkInstance instance)
 {
     VkDebugUtilsMessengerCreateInfoEXT create_info = {0};
     vulkan_populate_debug_messenger(&create_info);
 
-    VkResult result = create_debug_utils_messenger_EXT(vulkan_state.instance, &create_info,
+    VkResult result = create_debug_utils_messenger_EXT(instance, &create_info,
                                                        NULL, &vulkan_debug_messenger);
     VERIFY(result);
 }
@@ -207,6 +207,11 @@ b32 check_instance_extension_support() {
     vkEnumerateInstanceExtensionProperties(NULL, &extension_count, NULL);
     VkExtensionProperties* supported_extensions =
         (VkExtensionProperties*)malloc(sizeof(VkExtensionProperties) * extension_count);
+    
+    if (!supported_extensions) {
+        return false;
+    }
+    
     vkEnumerateInstanceExtensionProperties(NULL, &extension_count, supported_extensions);
 
     FC_TRACE("Supported vulkan instance extensions:");
@@ -229,6 +234,8 @@ b32 check_instance_extension_support() {
         }
     }
 
+    free(supported_extensions);
+    
     return true;
 }
 
@@ -237,6 +244,11 @@ b32 check_validation_layer_support() {
     vkEnumerateInstanceLayerProperties(&layer_count, NULL);
     VkLayerProperties* supported_layers =
         (VkLayerProperties*)malloc(sizeof(VkLayerProperties) * layer_count);
+
+    if (!supported_layers) {
+        return false;
+    }
+    
     vkEnumerateInstanceLayerProperties(&layer_count, supported_layers);
 
     FC_TRACE("Supported vulkan validation layers:");
@@ -258,10 +270,12 @@ b32 check_validation_layer_support() {
         }
     }
 
+    free(supported_layers);
+    
     return true;
 }
 
-static void vulkan_create_instance(X11State* x11_state)
+static VkInstance vulkan_create_instance(X11State* x11_state)
 {
     if (!check_instance_extension_support()) {
         FC_ERROR("Instance extensions requested, but not supported");
@@ -292,31 +306,44 @@ static void vulkan_create_instance(X11State* x11_state)
     vulkan_populate_debug_messenger(&debug_create_info);
     create_info.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debug_create_info;
 
-    VkResult result = vkCreateInstance(&create_info, NULL, &vulkan_state.instance);
+    VkInstance instance;
+    VkResult result = vkCreateInstance(&create_info, NULL, &instance);
+    
     VERIFY(result);
+
+    return instance;
 }
 
-static void vulkan_create_surface(X11State* x11_state)
+static VkSurfaceKHR vulkan_create_surface(X11State* x11_state, VkInstance instance)
 {
     VkXlibSurfaceCreateInfoKHR create_info = {0};
     create_info.sType                      = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
     create_info.dpy                        = x11_state->display;
     create_info.window                     = x11_state->window;
 
-    VkResult result = vkCreateXlibSurfaceKHR(vulkan_state.instance, &create_info,
-                                             NULL, &vulkan_state.surface);
+    VkSurfaceKHR surface;
+    VkResult result = vkCreateXlibSurfaceKHR(instance, &create_info,
+                                             NULL, &surface);
+    
     VERIFY(result);
+
+    return surface;
 }
 
 static VulkanQueueFamilyIndices vulkan_find_queue_families(VkPhysicalDevice device)
 {
-    VulkanQueueFamilyIndices indices;
+    VulkanQueueFamilyIndices indices = {0};
 
     u32 queue_family_count = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(device,
                                              &queue_family_count, NULL);
     VkQueueFamilyProperties* queue_families =
         (VkQueueFamilyProperties*)malloc(sizeof(VkQueueFamilyProperties) * queue_family_count);
+
+    if (!queue_families) {
+        return indices;
+    }
+    
     vkGetPhysicalDeviceQueueFamilyProperties(device,
                                              &queue_family_count, queue_families);
 
@@ -346,6 +373,11 @@ b32 vulkan_check_device_extension_support(VkPhysicalDevice device)
     vkEnumerateDeviceExtensionProperties(device, NULL, &extension_count, NULL);
     VkExtensionProperties* supported_extensions =
         (VkExtensionProperties*)malloc(sizeof(VkExtensionProperties) * extension_count);
+
+    if (!supported_extensions) {
+        return false;
+    }
+    
     vkEnumerateDeviceExtensionProperties(device, NULL, &extension_count, supported_extensions);
 
     FC_TRACE("Supported device extensions:");
@@ -369,6 +401,7 @@ b32 vulkan_check_device_extension_support(VkPhysicalDevice device)
     }
 
     free(supported_extensions);
+    
     return true;
 }
 
@@ -567,40 +600,51 @@ static b32 vulkan_is_device_suitable(VkPhysicalDevice device)
             vulkan_queue_family_indices_is_complete(&indices));
 }
 
-static void vulkan_pick_physical_device(void)
+static VkPhysicalDevice vulkan_pick_physical_device(VkInstance instance)
 {
-    vulkan_state.physical_device = VK_NULL_HANDLE;
+    VkPhysicalDevice physical_device = VK_NULL_HANDLE;
+    
     u32 device_count = 0;
-    vkEnumeratePhysicalDevices(vulkan_state.instance, &device_count, NULL);
+    vkEnumeratePhysicalDevices(instance, &device_count, NULL);
     if (device_count == 0) {
         FC_ERROR("Failed to find GPUs with vulkan support!");
     }
 
     VkPhysicalDevice* physical_devices =
         (VkPhysicalDevice*)malloc(sizeof(VkPhysicalDevice) * device_count);
-    vkEnumeratePhysicalDevices(vulkan_state.instance, &device_count, physical_devices);
+
+    if (!physical_devices) {
+        physical_device = physical_devices[0];
+        return physical_device;
+    }
+    
+    vkEnumeratePhysicalDevices(instance, &device_count, physical_devices);
 
     for (u32 i = 0; i < device_count; ++i) {
         if (vulkan_is_device_suitable(physical_devices[i])) {
-            vulkan_state.physical_device = physical_devices[i];
+            physical_device = physical_devices[i];
             break;
         }
     }
+    
     free(physical_devices);
 
-    if (vulkan_state.physical_device == VK_NULL_HANDLE) {
+    if (physical_device == VK_NULL_HANDLE) {
         FC_ERROR("Failed to find a suitable GPU");
     }
 
     VkPhysicalDeviceProperties device_properties;
-    vkGetPhysicalDeviceProperties(vulkan_state.physical_device, &device_properties);
+    vkGetPhysicalDeviceProperties(physical_device, &device_properties);
     FC_INFO("Picked physical device: %s", device_properties.deviceName);
+
+    return physical_device;
 }
 
-static void vulkan_create_logical_device(void)
+static void vulkan_setup_logical_device(VkPhysicalDevice physical_device,
+                                        VkDevice* logical_device, VulkanQueues* queues)
 {
     VulkanQueueFamilyIndices indices =
-        vulkan_find_queue_families(vulkan_state.physical_device);
+        vulkan_find_queue_families(physical_device);
 
     f32 queue_priority = 1.0f;
     VkDeviceQueueCreateInfo queue_create_infos[100];
@@ -617,10 +661,11 @@ static void vulkan_create_logical_device(void)
         b32 exists = false;
         for (u32 j = 0; j < unique_queue_families_count; ++j) {
             if (queue_families[i] == unique_queue_families[j]) {
-                    exists = true;
-                    break;
-                }
+                exists = true;
+                break;
+            }
         }
+        
         if (!exists) {
             unique_queue_families[unique_queue_families_count++] = queue_families[i];
         }
@@ -649,14 +694,14 @@ static void vulkan_create_logical_device(void)
     create_info.enabledLayerCount       = validation_layers_count;
     create_info.ppEnabledLayerNames     = validation_layers;
 
-    VkResult result = vkCreateDevice(vulkan_state.physical_device, &create_info,
-                                     NULL, &vulkan_state.device);
+    VkResult result = vkCreateDevice(physical_device, &create_info,
+                                     NULL, logical_device);
     VERIFY(result);
 
-    vkGetDeviceQueue(vulkan_state.device, indices.graphics_family_index,
-                     0, &vulkan_state.graphics_queue);
-    vkGetDeviceQueue(vulkan_state.device, indices.present_family_index,
-                     0, &vulkan_state.present_queue);
+    vkGetDeviceQueue(*logical_device, indices.graphics_family_index,
+                     0, &queues->graphics);
+    vkGetDeviceQueue(*logical_device, indices.present_family_index,
+                     0, &queues->present);
 }
 
 static VkShaderModule vulkan_create_shader_module(char* shader_code,
@@ -1083,7 +1128,7 @@ void vulkan_draw_frame(X11State* x11_state)
     submit_info.signalSemaphoreCount = 1;
     submit_info.pSignalSemaphores = signal_semaphores;
 
-    result = vkQueueSubmit(vulkan_state.graphics_queue, 1, &submit_info,
+    result = vkQueueSubmit(vulkan_state.queues.graphics, 1, &submit_info,
                                     vulkan_state.synchronization_primitives.in_flight_fences[vulkan_state.current_frame]);
     VERIFY(result);
 
@@ -1098,7 +1143,7 @@ void vulkan_draw_frame(X11State* x11_state)
     present_info.pImageIndices = &image_index;
     present_info.pResults = NULL;
 
-    result = vkQueuePresentKHR(vulkan_state.present_queue, &present_info);
+    result = vkQueuePresentKHR(vulkan_state.queues.present, &present_info);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR ||
         result == VK_SUBOPTIMAL_KHR || vulkan_state.framebuffer_resized) {
@@ -1125,11 +1170,14 @@ void x11_vulkan_init(X11State* x11_state)
 {
     FC_INFO("Initializing Vulkan");
 
-    vulkan_create_instance(x11_state);
-    vulkan_init_debug_messenger();
-    vulkan_create_surface(x11_state);
-    vulkan_pick_physical_device();
-    vulkan_create_logical_device();
+    vulkan_state.instance = vulkan_create_instance(x11_state);
+    vulkan_init_debug_messenger(vulkan_state.instance);
+    vulkan_state.surface = vulkan_create_surface(x11_state, vulkan_state.instance);
+    
+    vulkan_state.physical_device = vulkan_pick_physical_device(vulkan_state.instance);
+    vulkan_setup_logical_device(vulkan_state.physical_device,
+                                &vulkan_state.device, &vulkan_state.queues);
+    
     vulkan_create_swap_chain(x11_state);
     vulkan_create_image_views();
     vulkan_create_render_pass();

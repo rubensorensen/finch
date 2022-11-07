@@ -47,13 +47,18 @@ typedef struct _VulkanSyncPrimitives {
     VkFence     in_flight_fences[MAX_FRAMES_IN_FLIGHT];
 } VulkanSyncPrimitives;
 
+typedef struct _VulkanQueues {
+    VkQueue          graphics;
+    VkQueue          present;
+} VulkanQueues;
+
 typedef struct _VulkanState {    
     VkInstance       instance;
     VkSurfaceKHR     surface;
+    
     VkPhysicalDevice physical_device;
     VkDevice         device;
-    VkQueue          graphics_queue;
-    VkQueue          present_queue;
+    VulkanQueues     queues;
 
     VkRenderPass     render_pass;
     VkPipelineLayout pipeline_layout;
