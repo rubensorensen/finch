@@ -11,10 +11,16 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#include "linux_finch.h"
-#include "linux_vulkan.h"
+#include "finch/platform/linux/linux_finch.h"
+#include "finch/rendering/vulkan/vulkan.h"
 
 static X11State x11_state;
+
+// To be used by modules requiring access to x11 state
+X11State* x11_get_ptr_to_state(void)
+{
+    return &x11_state;
+}
 
 extern void vulkan_draw_frame(X11State*);
 extern void vulkan_set_framebuffer_resized(b32);
@@ -461,14 +467,11 @@ void platform_init(ApplicationState* application_state)
     game_resize(application_state,
                 x11_state.window_attributes.width,
                 x11_state.window_attributes.height);
-
-    x11_vulkan_init(&x11_state);
 }
 
 void platform_deinit(ApplicationState* application_state)
 {
     UNUSED(application_state);
-    x11_vulkan_deinit(&x11_state);
     x11_deinit(&x11_state);
 }
 
@@ -564,4 +567,9 @@ void platform_set_terminal_color(FcTerminalColor color) {
             } break;
         }
     }
+}
+
+void platform_get_framebuffer_size(u32* width, u32* height)
+{
+    x11_get_framebuffer_size(&x11_state, width, height);
 }

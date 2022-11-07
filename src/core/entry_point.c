@@ -8,12 +8,15 @@
 
 extern void linux_draw_frame(void);
 extern void vulkan_wait_for_device_idle(void);
+extern void vulkan_init(ApplicationState* app_state);
+extern void vulkan_deinit(void);
 
 int main(void)
 {
     ApplicationState application_state = {0};
     fc_application_init(&application_state);
     platform_init(&application_state);
+    vulkan_init(&application_state);
 
     f64 prev_time = platform_get_epoch_time();
 
@@ -43,6 +46,7 @@ int main(void)
 
     vulkan_wait_for_device_idle();
 
+    vulkan_deinit();
     platform_deinit(&application_state);
     fc_application_deinit(&application_state);
 

@@ -29,6 +29,8 @@ void fc_logger_log(char* name, FcLogLevel level,
                       __FILE__, __LINE__, FINCH_LOGBUF);                \
     }
 
+#ifdef FINCH_LOGGING
+
 #define FC_ENGINE_TRACE(...)  FC_LOG("FINCH", FC_LOG_LEVEL_TRACE, __VA_ARGS__)
 #define FC_ENGINE_INFO(...)   FC_LOG("FINCH", FC_LOG_LEVEL_INFO, __VA_ARGS__)
 #define FC_ENGINE_WARN(...)   FC_LOG("FINCH", FC_LOG_LEVEL_WARN, __VA_ARGS__)
@@ -38,5 +40,19 @@ void fc_logger_log(char* name, FcLogLevel level,
 #define FC_INFO(...)   FC_LOG("APPLICATION", FC_LOG_LEVEL_INFO, __VA_ARGS__)
 #define FC_WARN(...)   FC_LOG("APPLICATION", FC_LOG_LEVEL_WARN, __VA_ARGS__)
 #define FC_ERROR(...)  FC_LOG("APPLICATION", FC_LOG_LEVEL_ERROR, __VA_ARGS__)
+
+#else
+
+#define FC_ENGINE_TRACE(...)  
+#define FC_ENGINE_INFO(...)   
+#define FC_ENGINE_WARN(...)   
+#define FC_ENGINE_ERROR(...)  
+
+#define FC_TRACE(...)  
+#define FC_INFO(...)   
+#define FC_WARN(...)   
+#define FC_ERROR(...)  
+
+#endif // FINCH_LOGGING
 
 #endif // FINCH_LOG_LOG_H

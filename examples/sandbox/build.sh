@@ -13,6 +13,8 @@ BUILD_PATH="build/"
 BIN_PATH=$BUILD_PATH"/bin/"
 BIN="sandbox"
 
+BUILD_DEFINES="-DFINCH_LOGGING"
+
 RUN_TREE_PATH="run_tree/"
 
 SRC=$(find $SRC_PATH -name '*.c' | sort -k 1nr | cut -f2-)
@@ -65,7 +67,7 @@ compile_sources()
         SRC_FILE=$(echo $SRC | cut -d\  -f$i)
         OBJ_FILE=$(echo $OBJ | cut -d\  -f$i)
         echo -e "${BOLD}${BLUE}Compiling:${NORMAL} $SRC_FILE -> $OBJ_FILE"
-        $CC $CFLAGS -c $INCLUDE_PATH $SRC_FILE -o $OBJ_FILE
+        $CC $CFLAGS -c $INCLUDE_PATH $SRC_FILE $BUILD_DEFINES -o $OBJ_FILE
     done
 }
 

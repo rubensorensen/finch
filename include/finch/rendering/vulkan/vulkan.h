@@ -1,12 +1,20 @@
-#ifndef LINUX_VULKAN_H
-#define LINUX_VULAN_H
+#ifndef VULKAN_H
+#define VULKAN_H
 
-#include "linux_finch.h"
+#include "finch/utils/string.h"
+#include "finch/log/log.h"
 
+#ifdef FINCH_LINUX
 #define VK_USE_PLATFORM_XLIB_KHR
+#endif
 #include <vulkan/vulkan.h>
 
 #define MAX_FRAMES_IN_FLIGHT 2
+
+void vkresult_to_string(char* buf, VkResult result);
+
+#define VULKAN_VERIFY(result) vulkan_verify(result)
+void vulkan_verify(VkResult result);
 
 typedef struct _VulkanQueueFamilyIndices {
     b32 has_graphics_family;
@@ -90,10 +98,5 @@ typedef struct _VulkanState {
     u32                           current_frame;
     b32                           framebuffer_resized;
 } VulkanState;
- 
-b32 vulkan_queue_family_indices_is_complete(VulkanQueueFamilyIndices* indices);
-
-void x11_vulkan_init(X11State* x11_state);
-void x11_vulkan_deinit(X11State* x11_state);
 
 #endif // LINUX_VULKAN_H

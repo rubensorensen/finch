@@ -13,6 +13,9 @@ BUILD_PATH="build/"
 BIN_PATH=$BUILD_PATH"/bin/"
 BIN="finch"
 
+# BUILD_DEFINES="-DFINCH_LINUX"
+BUILD_DEFINES="-DFINCH_LINUX -DFINCH_LOGGING"
+
 SOURCES=$(find $SOURCE_PATH -name '*.c' | sort -k 1nr | cut -f2-)
 OBJECTS=$(echo $SOURCES | sed "s|\.c|\.o|g" | sed "s|$SOURCE_PATH|$BUILD_PATH|g")
 MODULES=$(echo $OBJECTS | sed "s|$BUILD_PATH||g" | sed "s|/[^/]*\.o||g" \
@@ -47,7 +50,7 @@ compile_sources()
         SOURCE_FILE=$(echo $SOURCES | cut -d\  -f$i)
         OBJECT_FILE=$(echo $OBJECTS | cut -d\  -f$i)
         echo -e "${BOLD}${BLUE}Compiling:${NORMAL} $SOURCE_FILE -> $OBJECT_FILE"
-        $CC $CFLAGS -c $INCLUDE_PATH -fpic $SOURCE_FILE -o $OBJECT_FILE
+        $CC $CFLAGS -c $INCLUDE_PATH -fpic $SOURCE_FILE $BUILD_DEFINES -o $OBJECT_FILE
     done
 }
 
