@@ -1,8 +1,7 @@
 #ifndef VULKAN_H
 #define VULKAN_H
 
-#include "finch/utils/string.h"
-#include "finch/log/log.h"
+#include "finch/core/core.h"
 
 #ifdef FINCH_LINUX
 #define VK_USE_PLATFORM_XLIB_KHR

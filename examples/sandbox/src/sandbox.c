@@ -1,12 +1,12 @@
 #include "finch/application/application.h"
 #include "finch/core/core.h"
-#include "finch/log/log.h"
-#include "finch/utils/string.h"
+#include "finch/utils/log.h"
 #include "finch/utils/utils.h"
 #include "finch/platform/platform.h"
 
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
 typedef struct _ApplicationData {
     f32 time_elapsed_seconds;

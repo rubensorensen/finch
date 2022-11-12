@@ -1,10 +1,11 @@
 #include "finch/rendering/vulkan/vulkan.h"
-#include "finch/log/log.h"
+#include "finch/utils/log.h"
 #include "finch/utils/utils.h"
 #include "finch/application/application.h"
 #include "finch/platform/platform.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 // Implemented in platform layer
 extern VkSurfaceKHR vulkan_create_surface(VkInstance instance);
@@ -123,76 +124,76 @@ void vkresult_to_string(char* buf, VkResult result)
     switch (result)
     {
         case VK_SUCCESS: {
-            string_copy(buf, "Success");
+            strcpy(buf, "Success");
         } break;
         case VK_NOT_READY: {
-            string_copy(buf, "A fence or query has not yet completed");
+            strcpy(buf, "A fence or query has not yet completed");
         } break;
         case VK_TIMEOUT: {
-            string_copy(buf, "A wait operation has not completed in the specified time");
+            strcpy(buf, "A wait operation has not completed in the specified time");
         } break;
         case VK_EVENT_SET: {
-            string_copy(buf, "An event is signaled");
+            strcpy(buf, "An event is signaled");
         } break;
         case VK_EVENT_RESET: {
-            string_copy(buf, "An event is unsignaled");
+            strcpy(buf, "An event is unsignaled");
         } break;
         case VK_INCOMPLETE: {
-            string_copy(buf, "A string_copy(buf, array was too small for the result");
+            strcpy(buf, "A string_copy(buf, array was too small for the result");
         } break;
         case VK_ERROR_OUT_OF_HOST_MEMORY: {
-            string_copy(buf, "A host memory allocation has failed");
+            strcpy(buf, "A host memory allocation has failed");
         } break;
         case VK_ERROR_OUT_OF_DEVICE_MEMORY: {
-            string_copy(buf, "A device memory allocation has failed");
+            strcpy(buf, "A device memory allocation has failed");
         } break;
         case VK_ERROR_INITIALIZATION_FAILED: {
-            string_copy(buf, "Initialization of an object could not be completed for implementation-specific reasons");
+            strcpy(buf, "Initialization of an object could not be completed for implementation-specific reasons");
         } break;
         case VK_ERROR_DEVICE_LOST: {
-            string_copy(buf, "The logical or physical device has been lost");
+            strcpy(buf, "The logical or physical device has been lost");
         } break;
         case VK_ERROR_MEMORY_MAP_FAILED: {
-            string_copy(buf, "Mapping of a memory object has failed");
+            strcpy(buf, "Mapping of a memory object has failed");
         } break;
         case VK_ERROR_LAYER_NOT_PRESENT: {
-            string_copy(buf, "A requested layer is not present or could not be loaded");
+            strcpy(buf, "A requested layer is not present or could not be loaded");
         } break;
         case VK_ERROR_EXTENSION_NOT_PRESENT: {
-            string_copy(buf, "A requested extension is not supported");
+            strcpy(buf, "A requested extension is not supported");
         } break;
         case VK_ERROR_FEATURE_NOT_PRESENT: {
-            string_copy(buf, "A requested feature is not supported");
+            strcpy(buf, "A requested feature is not supported");
         } break;
         case VK_ERROR_INCOMPATIBLE_DRIVER: {
-            string_copy(buf, "The requested version of Vulkan is not supported by the driver or is otherwise incompatible");
+            strcpy(buf, "The requested version of Vulkan is not supported by the driver or is otherwise incompatible");
         } break;
         case VK_ERROR_TOO_MANY_OBJECTS: {
-            string_copy(buf, "Too many objects of the type have already been created");
+            strcpy(buf, "Too many objects of the type have already been created");
         } break;
         case VK_ERROR_FORMAT_NOT_SUPPORTED: {
-            string_copy(buf, "A requested format is not supported on this device");
+            strcpy(buf, "A requested format is not supported on this device");
         } break;
         case VK_ERROR_SURFACE_LOST_KHR: {
-            string_copy(buf, "A surface is no longer available");
+            strcpy(buf, "A surface is no longer available");
         } break;
         case VK_SUBOPTIMAL_KHR: {
-            string_copy(buf, "A swapchain no longer matches the surface properties exactly, but can still be used");
+            strcpy(buf, "A swapchain no longer matches the surface properties exactly, but can still be used");
         } break;
         case VK_ERROR_OUT_OF_DATE_KHR: {
-            string_copy(buf, "A surface has changed in such a way that it is no longer compatible with the swapchain");
+            strcpy(buf, "A surface has changed in such a way that it is no longer compatible with the swapchain");
         } break;
         case VK_ERROR_INCOMPATIBLE_DISPLAY_KHR: {
-            string_copy(buf, "The display used by a swapchain does not use the same presentable image layout");
+            strcpy(buf, "The display used by a swapchain does not use the same presentable image layout");
         } break;
         case VK_ERROR_NATIVE_WINDOW_IN_USE_KHR: {
-            string_copy(buf, "The requested window is already connected to a VkSurfaceKHR, or to some other non-Vulkan API");
+            strcpy(buf, "The requested window is already connected to a VkSurfaceKHR, or to some other non-Vulkan API");
         } break;
         case VK_ERROR_VALIDATION_FAILED_EXT: {
-            string_copy(buf, "A validation layer found an error");
+            strcpy(buf, "A validation layer found an error");
         } break;
         default: {
-            string_copy(buf, "ERROR: UNKNOWN VULKAN ERROR");
+            strcpy(buf, "ERROR: UNKNOWN VULKAN ERROR");
         }
     }
 }
@@ -200,7 +201,7 @@ void vkresult_to_string(char* buf, VkResult result)
 void vulkan_verify(VkResult result)
 {
     if (result != VK_SUCCESS) {
-        char buf[1024];
+        char buf[512];
         vkresult_to_string(buf, result);
         FC_ERROR("Vulkan: %s", buf);
     }
@@ -227,8 +228,8 @@ b32 check_instance_extension_support() {
     for (u32 i = 0; i < instance_extensions_count; ++i) {
         b32 extension_found = false;
         for (u32 j = 0; j < extension_count; ++j) {
-            if (string_compare((char*)instance_extensions[i],
-                               supported_extensions[j].extensionName)) {
+            if (strcmp((char*)instance_extensions[i],
+                               supported_extensions[j].extensionName) != 0) {
                 extension_found = true;
                 break;
             }
@@ -259,7 +260,7 @@ b32 check_validation_layer_support() {
     for (u32 i = 0; i < validation_layers_count; ++i) {
         b32 layer_found = false;
         for (u32 j = 0; j < layer_count; ++j) {
-            if (string_compare((char*)validation_layers[i], supported_layers[j].layerName)) {
+            if (strcmp((char*)validation_layers[i], supported_layers[j].layerName) != 0) {
                 layer_found = true;
                 break;
             }
@@ -369,8 +370,8 @@ b32 vulkan_check_device_extension_support(VkPhysicalDevice device)
     for (u32 i = 0; i < device_extensions_count; ++i) {
         b32 extension_found = false;
         for (u32 j = 0; j < extension_count; ++j) {
-            if (string_compare((char*)device_extensions[i],
-                               supported_extensions[j].extensionName)) {
+            if (strcmp((char*)device_extensions[i],
+                       supported_extensions[j].extensionName) != 0) {
                 extension_found = true;
                 break;
             }

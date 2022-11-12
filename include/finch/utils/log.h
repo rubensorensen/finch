@@ -1,5 +1,6 @@
 #include "finch/core/core.h"
-#include "finch/utils/string.h"
+
+#include <stdio.h>
 
 #ifndef FINCH_LOG_LOG_H
 #define FINCH_LOG_LOG_H
@@ -24,7 +25,7 @@ void fc_logger_log(char* name, FcLogLevel level,
 
 #define FC_LOG(NAME, LEVEL, ...) {                                      \
         char FINCH_LOGBUF[1024];                                        \
-        string_format(FINCH_LOGBUF, sizeof(FINCH_LOGBUF), __VA_ARGS__); \
+        sprintf(FINCH_LOGBUF, __VA_ARGS__); \
         fc_logger_log(NAME, LEVEL,                                      \
                       __FILE__, __LINE__, FINCH_LOGBUF);                \
     }

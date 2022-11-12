@@ -1,13 +1,12 @@
 #define _POSIX_C_SOURCE 199309L
 
 #include "finch/core/core.h"
-#include "finch/utils/string.h"
 #include "finch/utils/utils.h"
+#include "finch/utils/log.h"
 #include "finch/core/events.h"
 #include "finch/application/application.h"
 
-#include "finch/log/log.h"
-
+#include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 
@@ -216,7 +215,7 @@ static void x11_handle_events(X11State* x11_state, ApplicationState* application
                         } break;
                         default: {
                             // Unhandled key
-                            FC_ENGINE_WARN("Unhandled key press event (Key: %d)", key);
+                            FC_ENGINE_WARN("Unhandled key press event (Key: %zu)", key);
                             finch_event.type = FC_EVENT_TYPE_NONE;
                             finch_key = FC_KEY_NONE;
                         }
@@ -495,16 +494,6 @@ void platform_set_window_title(const char* title)
     XStoreName(x11_state.display, x11_state.window, title);
 }
 
-void platform_write_to_stdout(char* str)
-{
-    write(STDOUT_FILENO, str, string_length_null_terminated(str));
-}
-
-void platform_write_to_stderr(char* str)
-{
-    write(STDERR_FILENO, str, string_length_null_terminated(str));
-}
-
 b32 platform_terminal_supports_colors()
 {
     int fd[2];
@@ -554,16 +543,16 @@ void platform_set_terminal_color(FcTerminalColor color) {
     if (terminal_supports_colors) {
         switch (color) {
             case FC_TERM_COLOR_WHITE: {
-                platform_write_to_stdout("\033[0m");
+                printf("\033[0m");
             } break;
             case FC_TERM_COLOR_GREEN: {
-                platform_write_to_stdout("\033[32m");
+                printf("\033[32m");
             } break;
             case FC_TERM_COLOR_ORANGE: {
-                platform_write_to_stdout("\033[33m");
+                printf("\033[33m");
             } break;
             case FC_TERM_COLOR_RED: {
-                platform_write_to_stdout("\033[31m");
+                printf("\033[31m");
             } break;
         }
     }
