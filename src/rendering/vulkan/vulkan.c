@@ -1280,24 +1280,71 @@ static void vulkan_create_buffer(VkPhysicalDevice phys_dev,VkDevice dev,
     vkBindBufferMemory(dev, *buffer, *buffer_memory, 0);
 }
 
+static void vulkan_copy_buffer(VkDevice dev, VkCommandPool command_pool,
+                               VkQueue graphics_queue,
+                               VkBuffer src, VkBuffer dest, VkDeviceSize size)
+{
+
+    VkCommandBufferAllocateInfo alloc_info = {0};
+    alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    alloc_info.commandPool = command_pool; // TODO: Create separate command pool for transient command buffers
+    alloc_info.commandBufferCount = 1;
+
+    VkCommandBuffer command_buffer;
+    vkAllocateCommandBuffers(dev, &alloc_info, &command_buffer);
+
+    VkCommandBufferBeginInfo begin_info = {0};
+    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    
+    vkBeginCommandBuffer(command_buffer, &begin_info);
+    VkBufferCopy copy_region = {0};
+    copy_region.srcOffset = 0;
+    copy_region.dstOffset = 0;
+    copy_region.size = size;
+    vkCmdCopyBuffer(command_buffer, src, dest, 1, &copy_region);
+    vkEndCommandBuffer(command_buffer);
+
+    VkSubmitInfo submit_info = {0};
+    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers = &command_buffer;
+
+    vkQueueSubmit(graphics_queue, 1, &submit_info, VK_NULL_HANDLE);
+    vkQueueWaitIdle(graphics_queue);
+
+    vkFreeCommandBuffers(dev, command_pool, 1, &command_buffer);
+}
+
 static void vulkan_create_vertex_buffer(VkPhysicalDevice phys_dev, VkDevice dev,
+                                        VkCommandPool command_pool, VkQueue graphics_queue,
                                         VkBuffer* buffer, VkDeviceMemory* buffer_memory)
 {
     VkDeviceSize buffer_size = sizeof(vertices);
-    
-    u32 mem_props = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-    
-    vulkan_create_buffer(phys_dev, dev, buffer_size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, mem_props,
-                         buffer, buffer_memory);
+
+    VkBuffer staging_buffer;
+    VkDeviceMemory staging_buffer_memory;
+    vulkan_create_buffer(phys_dev, dev, buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                         &staging_buffer, &staging_buffer_memory);
     
     void* data;
-    VkResult result = vkMapMemory(dev, *buffer_memory, 0,
+    VkResult result = vkMapMemory(dev, staging_buffer_memory, 0,
                                   buffer_size, 0, &data);
     VULKAN_VERIFY(result);
     memcpy(data, vertices, buffer_size);
-    vkUnmapMemory(dev, *buffer_memory);
+    vkUnmapMemory(dev, staging_buffer_memory);
     
+    vulkan_create_buffer(phys_dev, dev, buffer_size,
+                         VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, buffer, buffer_memory);
+
+    vulkan_copy_buffer(dev, command_pool, graphics_queue,
+                       staging_buffer, *buffer, buffer_size);
+
+    vkDestroyBuffer(dev, staging_buffer, NULL);
+    vkFreeMemory(dev, staging_buffer_memory, NULL);
 }
 
 void vulkan_init(ApplicationState* app_state)
@@ -1341,6 +1388,7 @@ void vulkan_init(ApplicationState* app_state)
                                                            vulkan_state.indices);
     
     vulkan_create_vertex_buffer(vulkan_state.physical_device, vulkan_state.device,
+                                vulkan_state.command_pool, vulkan_state.queues.graphics,
                                 &vulkan_state.vertex_buffer,
                                 &vulkan_state.vertex_buffer_memory);
 
