@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define VSYNC 1
+
 static Vertex vertices[] = {
     {
         .position = {.x = 0.0f, .y = -0.5f},
@@ -443,8 +445,16 @@ static VkSurfaceFormatKHR vulkan_choose_swap_surface_format(VkSurfaceFormatKHR* 
 
 static VkPresentModeKHR vulkan_choose_swap_present_mode(VkPresentModeKHR* available_present_modes, u32 available_present_modes_count)
 {
+    VkPresentModeKHR optimal_present_mode;
+    
+#if VSYNC // Enable V-sync
+    optimal_present_mode = VK_PRESENT_MODE_MAILBOX_KHR;
+#else
+    optimal_present_mode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+#endif
+    
     for (u32 i = 0; i < available_present_modes_count; ++i) {
-        if (available_present_modes[i] == VK_PRESENT_MODE_MAILBOX_KHR) {
+        if (available_present_modes[i] == optimal_present_mode) {
             return available_present_modes[i];
         }
     }
