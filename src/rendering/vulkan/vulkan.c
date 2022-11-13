@@ -11,18 +11,24 @@
 
 static Vertex vertices[] = {
     {
-        .position = {.x = 0.0f, .y = -0.5f},
+        .position = {.x = -0.5f, .y = -0.5f},
         .color    = {.r = 1.0f, .g = 0.0f, .b = 0.0f}
     },
     {
-        .position = {.x = 0.5f, .y = 0.5f},
+        .position = {.x = 0.5f, .y = -0.5f},
         .color    = {.r = 0.0f, .g = 1.0f, .b = 0.0f}
     },
     {
-        .position = {.x = -0.5f, .y = 0.5f},
+        .position = {.x = 0.5f, .y = 0.5f},
         .color    = {.r = 0.0f, .g = 0.0f, .b = 1.0f}
+    },
+    {
+        .position = {.x = -0.5f, .y = 0.5f},
+        .color    = {.r = 1.0f, .g = 1.0f, .b = 1.0f}
     }
 };
+
+static u16 indices[] = {0, 1, 2, 2, 3, 0};
 
 // Implemented in platform layer
 extern VkSurfaceKHR vulkan_create_surface(VkInstance instance);
@@ -1047,7 +1053,7 @@ static VulkanCommandBuffers vulkan_create_command_buffers(VkDevice device,
     return command_buffers;
 }
 
-static void vulkan_record_command_buffer(VkCommandBuffer command_buffer, u32 image_index, VkBuffer vertex_buffer)
+static void vulkan_record_command_buffer(VkCommandBuffer command_buffer, u32 image_index, VkBuffer vertex_buffer, VkBuffer index_buffer)
 {
     VkCommandBufferBeginInfo begin_info = {0};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1076,6 +1082,7 @@ static void vulkan_record_command_buffer(VkCommandBuffer command_buffer, u32 ima
     VkBuffer vertex_buffers[] = {vertex_buffer};
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(command_buffer, 0, 1, vertex_buffers, offsets);
+    vkCmdBindIndexBuffer(command_buffer, index_buffer, 0, VK_INDEX_TYPE_UINT16);
     
     VkViewport viewport = {0};
     viewport.x = 0.0f;
@@ -1092,8 +1099,9 @@ static void vulkan_record_command_buffer(VkCommandBuffer command_buffer, u32 ima
     scissor.extent = vulkan_state.swap_chain_info.extent;
     vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 
-    vkCmdDraw(command_buffer, sizeof(vertices) / sizeof(vertices[0]), 1, 0, 0);
-
+    /* vkCmdDraw(command_buffer, sizeof(vertices) / sizeof(vertices[0]), 1, 0, 0); */
+    vkCmdDrawIndexed(command_buffer, sizeof(indices) / sizeof(indices[0]), 1, 0, 0, 0);
+    
     vkCmdEndRenderPass(command_buffer);
 
     result = vkEndCommandBuffer(command_buffer);
@@ -1181,7 +1189,7 @@ void vulkan_draw_frame()
                   &vulkan_state.sync_objs.in_flight_fences[vulkan_state.current_frame]);
 
     vkResetCommandBuffer(vulkan_state.command_buffers.buffers[vulkan_state.current_frame], 0);
-    vulkan_record_command_buffer(vulkan_state.command_buffers.buffers[vulkan_state.current_frame], image_index, vulkan_state.vertex_buffer);
+    vulkan_record_command_buffer(vulkan_state.command_buffers.buffers[vulkan_state.current_frame], image_index, vulkan_state.vertex_buffer, vulkan_state.index_buffer);
 
     VkSubmitInfo submit_info = {0};
     submit_info.sType        = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -1357,6 +1365,36 @@ static void vulkan_create_vertex_buffer(VkPhysicalDevice phys_dev, VkDevice dev,
     vkFreeMemory(dev, staging_buffer_memory, NULL);
 }
 
+static void vulkan_create_index_buffer(VkPhysicalDevice phys_dev, VkDevice dev,
+                                        VkCommandPool command_pool, VkQueue graphics_queue,
+                                        VkBuffer* buffer, VkDeviceMemory* buffer_memory)
+{
+    VkDeviceSize buffer_size = sizeof(indices);
+
+    VkBuffer staging_buffer;
+    VkDeviceMemory staging_buffer_memory;
+    vulkan_create_buffer(phys_dev, dev, buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                         &staging_buffer, &staging_buffer_memory);
+    
+    void* data;
+    VkResult result = vkMapMemory(dev, staging_buffer_memory, 0,
+                                  buffer_size, 0, &data);
+    VULKAN_VERIFY(result);
+    memcpy(data, indices, buffer_size);
+    vkUnmapMemory(dev, staging_buffer_memory);
+    
+    vulkan_create_buffer(phys_dev, dev, buffer_size,
+                         VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, buffer, buffer_memory);
+
+    vulkan_copy_buffer(dev, command_pool, graphics_queue,
+                       staging_buffer, *buffer, buffer_size);
+
+    vkDestroyBuffer(dev, staging_buffer, NULL);
+    vkFreeMemory(dev, staging_buffer_memory, NULL);
+}
+
 void vulkan_init(ApplicationState* app_state)
 {
     FC_INFO("Initializing Vulkan");
@@ -1401,6 +1439,11 @@ void vulkan_init(ApplicationState* app_state)
                                 vulkan_state.command_pool, vulkan_state.queues.graphics,
                                 &vulkan_state.vertex_buffer,
                                 &vulkan_state.vertex_buffer_memory);
+    
+    vulkan_create_index_buffer(vulkan_state.physical_device, vulkan_state.device,
+                                vulkan_state.command_pool, vulkan_state.queues.graphics,
+                                &vulkan_state.index_buffer,
+                                &vulkan_state.index_buffer_memory);
 
     vulkan_state.command_buffers =
         vulkan_create_command_buffers(vulkan_state.device, vulkan_state.command_pool,
@@ -1427,8 +1470,12 @@ void vulkan_deinit()
         vkDestroyFence(vulkan_state.device, vulkan_state.sync_objs.in_flight_fences[i], NULL);
     }
 
+    vkDestroyBuffer(vulkan_state.device, vulkan_state.index_buffer, NULL);
+    vkFreeMemory(vulkan_state.device, vulkan_state.index_buffer_memory, NULL);
+    
     vkDestroyBuffer(vulkan_state.device, vulkan_state.vertex_buffer, NULL);
     vkFreeMemory(vulkan_state.device, vulkan_state.vertex_buffer_memory, NULL);
+    
     vkDestroyCommandPool(vulkan_state.device, vulkan_state.command_pool, NULL);
     vkDestroyDevice(vulkan_state.device, NULL);
     vkDestroySurfaceKHR(vulkan_state.instance, vulkan_state.surface, NULL);

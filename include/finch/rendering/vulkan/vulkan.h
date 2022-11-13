@@ -95,6 +95,8 @@ typedef struct _VulkanState {
 
     VkBuffer vertex_buffer;
     VkDeviceMemory vertex_buffer_memory;
+    VkBuffer index_buffer;
+    VkDeviceMemory index_buffer_memory;
 
     VkRenderPass         render_pass;
     VulkanPipeline       pipeline;
