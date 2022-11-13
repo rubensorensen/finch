@@ -1,9 +1,9 @@
+#ifndef FINCH_UTILS_LOG_H
+#define FINCH_UTILS_LOG_H
+
 #include "finch/core/core.h"
 
 #include <stdio.h>
-
-#ifndef FINCH_LOG_LOG_H
-#define FINCH_LOG_LOG_H
 
 typedef enum _FcTerminalColor {
     FC_TERM_COLOR_WHITE,
@@ -56,4 +56,4 @@ void fc_logger_log(char* name, FcLogLevel level,
 
 #endif // FINCH_LOGGING
 
-#endif // FINCH_LOG_LOG_H
+#endif // FINCH_UTILS_LOG_H

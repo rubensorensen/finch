@@ -7,6 +7,21 @@
 #include <stdlib.h>
 #include <string.h>
 
+static Vertex vertices[] = {
+    {
+        .position = {.x = 0.0f, .y = -0.5f},
+        .color    = {.r = 1.0f, .g = 0.0f, .b = 0.0f}
+    },
+    {
+        .position = {.x = 0.5f, .y = 0.5f},
+        .color    = {.r = 0.0f, .g = 1.0f, .b = 0.0f}
+    },
+    {
+        .position = {.x = -0.5f, .y = 0.5f},
+        .color    = {.r = 0.0f, .g = 0.0f, .b = 1.0f}
+    }
+};
+
 // Implemented in platform layer
 extern VkSurfaceKHR vulkan_create_surface(VkInstance instance);
 
@@ -788,6 +803,32 @@ static VkRenderPass vulkan_create_render_pass(VkDevice device, VkFormat image_fo
     return render_pass;
 }
 
+static VkVertexInputBindingDescription vulkan_get_binding_desc()
+{
+    VkVertexInputBindingDescription binding_desc = {};
+    binding_desc.binding   = 0;
+    binding_desc.stride    = sizeof(Vertex);
+    binding_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    
+    return binding_desc;
+}
+
+static VulkanAttributeDescriptions vulkan_get_attrib_descs()
+{
+    VulkanAttributeDescriptions attrib_descs = {};
+    attrib_descs.descs[0].binding = 0;
+    attrib_descs.descs[0].location = 0;
+    attrib_descs.descs[0].format = VK_FORMAT_R32G32_SFLOAT;
+    attrib_descs.descs[0].offset = offsetof(Vertex, position);
+
+    attrib_descs.descs[1].binding = 0;
+    attrib_descs.descs[1].location = 1;
+    attrib_descs.descs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attrib_descs.descs[1].offset = offsetof(Vertex, color);
+    
+    return attrib_descs;
+}
+
 static VulkanPipeline vulkan_create_graphics_pipeline(VkDevice device,
                                                       VkRenderPass render_pass)
 {
@@ -842,12 +883,15 @@ static VulkanPipeline vulkan_create_graphics_pipeline(VkDevice device,
     dynamic_state.pDynamicStates    = dynamic_states;
 
     // Prepare vertex input
+    VkVertexInputBindingDescription binding_desc = vulkan_get_binding_desc();
+    VulkanAttributeDescriptions attrib_descs     = vulkan_get_attrib_descs();
+    
     VkPipelineVertexInputStateCreateInfo vertex_input_info = {0};
     vertex_input_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertex_input_info.vertexBindingDescriptionCount   = 0;
-    vertex_input_info.pVertexBindingDescriptions      = NULL;
-    vertex_input_info.vertexAttributeDescriptionCount = 0;
-    vertex_input_info.pVertexAttributeDescriptions    = NULL;
+    vertex_input_info.vertexBindingDescriptionCount   = 1;
+    vertex_input_info.pVertexBindingDescriptions      = &binding_desc;
+    vertex_input_info.vertexAttributeDescriptionCount = 2;
+    vertex_input_info.pVertexAttributeDescriptions    = attrib_descs.descs;
 
     // Prepare input assembly
     VkPipelineInputAssemblyStateCreateInfo input_assembly = {0};
@@ -993,7 +1037,7 @@ static VulkanCommandBuffers vulkan_create_command_buffers(VkDevice device,
     return command_buffers;
 }
 
-static void vulkan_record_command_buffer(VkCommandBuffer command_buffer, u32 image_index)
+static void vulkan_record_command_buffer(VkCommandBuffer command_buffer, u32 image_index, VkBuffer vertex_buffer)
 {
     VkCommandBufferBeginInfo begin_info = {0};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1019,6 +1063,10 @@ static void vulkan_record_command_buffer(VkCommandBuffer command_buffer, u32 ima
     vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                       vulkan_state.pipeline.graphics);
 
+    VkBuffer vertex_buffers[] = {vertex_buffer};
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(command_buffer, 0, 1, vertex_buffers, offsets);
+    
     VkViewport viewport = {0};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
@@ -1034,7 +1082,7 @@ static void vulkan_record_command_buffer(VkCommandBuffer command_buffer, u32 ima
     scissor.extent = vulkan_state.swap_chain_info.extent;
     vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 
-    vkCmdDraw(command_buffer, 3, 1, 0, 0);
+    vkCmdDraw(command_buffer, sizeof(vertices) / sizeof(vertices[0]), 1, 0, 0);
 
     vkCmdEndRenderPass(command_buffer);
 
@@ -1123,8 +1171,7 @@ void vulkan_draw_frame()
                   &vulkan_state.sync_objs.in_flight_fences[vulkan_state.current_frame]);
 
     vkResetCommandBuffer(vulkan_state.command_buffers.buffers[vulkan_state.current_frame], 0);
-    vulkan_record_command_buffer(vulkan_state.command_buffers.buffers[vulkan_state.current_frame],
-                                 image_index);
+    vulkan_record_command_buffer(vulkan_state.command_buffers.buffers[vulkan_state.current_frame], image_index, vulkan_state.vertex_buffer);
 
     VkSubmitInfo submit_info = {0};
     submit_info.sType        = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -1187,6 +1234,72 @@ void vulkan_wait_for_device_idle(void)
     vkDeviceWaitIdle(vulkan_state.device);
 }
 
+static u32 vulkan_find_memory_type(VkPhysicalDevice phys_dev,
+                                   u32 type_filter, VkMemoryPropertyFlags props)
+{
+    VkPhysicalDeviceMemoryProperties mem_props;
+    vkGetPhysicalDeviceMemoryProperties(phys_dev, &mem_props);
+
+    for (u32 i = 0; i < mem_props.memoryTypeCount; ++i) {
+        if ((type_filter & (1 << i)) &&
+            (mem_props.memoryTypes[i].propertyFlags & props) == props) {
+            return i;
+        }
+    }
+
+    FC_ERROR("Failed to find suitable memory type");
+    return 0;
+}
+
+static void vulkan_create_buffer(VkPhysicalDevice phys_dev,VkDevice dev,
+                                 VkDeviceSize size,
+                                 VkBufferUsageFlags usage, VkMemoryPropertyFlags props,
+                                 VkBuffer* buffer, VkDeviceMemory* buffer_memory)
+{
+    VkBufferCreateInfo buffer_info = {0};
+    buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    buffer_info.size = size;
+    buffer_info.usage = usage;
+    buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    
+    VkResult result = vkCreateBuffer(dev, &buffer_info, NULL, buffer);
+    VULKAN_VERIFY(result);
+
+    VkMemoryRequirements mem_reqs;
+    vkGetBufferMemoryRequirements(dev, *buffer, &mem_reqs);
+
+    VkMemoryAllocateInfo alloc_info = {0};
+    alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    alloc_info.allocationSize = mem_reqs.size;
+    alloc_info.memoryTypeIndex =
+        vulkan_find_memory_type(phys_dev, mem_reqs.memoryTypeBits, props);
+
+    result = vkAllocateMemory(dev, &alloc_info, NULL, buffer_memory);
+    VULKAN_VERIFY(result);
+
+    vkBindBufferMemory(dev, *buffer, *buffer_memory, 0);
+}
+
+static void vulkan_create_vertex_buffer(VkPhysicalDevice phys_dev, VkDevice dev,
+                                        VkBuffer* buffer, VkDeviceMemory* buffer_memory)
+{
+    VkDeviceSize buffer_size = sizeof(vertices);
+    
+    u32 mem_props = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    
+    vulkan_create_buffer(phys_dev, dev, buffer_size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, mem_props,
+                         buffer, buffer_memory);
+    
+    void* data;
+    VkResult result = vkMapMemory(dev, *buffer_memory, 0,
+                                  buffer_size, 0, &data);
+    VULKAN_VERIFY(result);
+    memcpy(data, vertices, buffer_size);
+    vkUnmapMemory(dev, *buffer_memory);
+    
+}
+
 void vulkan_init(ApplicationState* app_state)
 {
     FC_INFO("Initializing Vulkan");
@@ -1227,6 +1340,10 @@ void vulkan_init(ApplicationState* app_state)
     vulkan_state.command_pool = vulkan_create_command_pool(vulkan_state.device,
                                                            vulkan_state.indices);
     
+    vulkan_create_vertex_buffer(vulkan_state.physical_device, vulkan_state.device,
+                                &vulkan_state.vertex_buffer,
+                                &vulkan_state.vertex_buffer_memory);
+
     vulkan_state.command_buffers =
         vulkan_create_command_buffers(vulkan_state.device, vulkan_state.command_pool,
                                       MAX_FRAMES_IN_FLIGHT);
@@ -1252,6 +1369,8 @@ void vulkan_deinit()
         vkDestroyFence(vulkan_state.device, vulkan_state.sync_objs.in_flight_fences[i], NULL);
     }
 
+    vkDestroyBuffer(vulkan_state.device, vulkan_state.vertex_buffer, NULL);
+    vkFreeMemory(vulkan_state.device, vulkan_state.vertex_buffer_memory, NULL);
     vkDestroyCommandPool(vulkan_state.device, vulkan_state.command_pool, NULL);
     vkDestroyDevice(vulkan_state.device, NULL);
     vkDestroySurfaceKHR(vulkan_state.instance, vulkan_state.surface, NULL);

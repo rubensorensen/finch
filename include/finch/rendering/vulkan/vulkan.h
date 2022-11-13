@@ -2,6 +2,8 @@
 #define VULKAN_H
 
 #include "finch/core/core.h"
+#include "finch/math/vec2.h"
+#include "finch/math/vec3.h"
 
 #ifdef FINCH_LINUX
 #define VK_USE_PLATFORM_XLIB_KHR
@@ -77,6 +79,11 @@ typedef struct _VulkanCommandBuffers {
     u32             count;
 } VulkanCommandBuffers;
 
+typedef struct _Vertex {
+    Vec2F32 position;
+    Vec3F32 color;
+} Vertex;
+
 typedef struct _VulkanState {    
     VkInstance       instance;
     VkSurfaceKHR     surface;
@@ -85,6 +92,9 @@ typedef struct _VulkanState {
     VkDevice                 device;
     VulkanQueueFamilyIndices indices;
     VulkanQueues             queues;
+
+    VkBuffer vertex_buffer;
+    VkDeviceMemory vertex_buffer_memory;
 
     VkRenderPass         render_pass;
     VulkanPipeline       pipeline;
@@ -97,5 +107,9 @@ typedef struct _VulkanState {
     u32                           current_frame;
     b32                           framebuffer_resized;
 } VulkanState;
+
+typedef struct _VulkanAttributeDescriptions {
+    VkVertexInputAttributeDescription descs[2];
+} VulkanAttributeDescriptions;
 
 #endif // LINUX_VULKAN_H
