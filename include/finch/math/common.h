@@ -1,0 +1,7 @@
+#ifndef _FINCH_MATH_COMMON_H
+#define _FINCH_MATH_COMMON_H
+
+#define PI  3.14159265358979323846
+#define TAU (2*PI)
+
+#endif // _FINCH_MATH_COMMON_H

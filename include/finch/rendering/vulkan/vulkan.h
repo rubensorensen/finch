@@ -2,8 +2,7 @@
 #define VULKAN_H
 
 #include "finch/core/core.h"
-#include "finch/math/vec2.h"
-#include "finch/math/vec3.h"
+#include "finch/math/lin_alg.h"
 
 #ifdef FINCH_LINUX
 #define VK_USE_PLATFORM_XLIB_KHR
@@ -80,8 +79,8 @@ typedef struct _VulkanCommandBuffers {
 } VulkanCommandBuffers;
 
 typedef struct _Vertex {
-    Vec2F32 position;
-    Vec3F32 color;
+    v2f32 position;
+    v3f32 color;
 } Vertex;
 
 typedef struct _VulkanState {    

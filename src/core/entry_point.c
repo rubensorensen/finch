@@ -2,6 +2,7 @@
 #include "finch/application/application.h"
 #include "finch/utils/log.h"
 #include "finch/platform/platform.h"
+#include "finch/math/lin_alg.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,7 +12,17 @@ extern void vulkan_wait_for_device_idle(void);
 extern void vulkan_init(ApplicationState* app_state);
 extern void vulkan_deinit(void);
 
+#include <stdio.h>
 int main(void)
+{
+    m4x4f32 mat = m4x4f32_identity();
+    mat.c[3] = 3.4f;
+    m4x4f32_print(mat);
+    
+    return 0;
+}
+
+int main2(void)
 {
     ApplicationState application_state = {0};
     fc_application_init(&application_state);
