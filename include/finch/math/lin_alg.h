@@ -4,8 +4,6 @@
 #include "finch/math/common.h"
 #include "finch/core/core.h"
 
-#include <math.h>
-
 typedef union _v2f32 {
     f32 c[2];
     struct {
@@ -33,15 +31,24 @@ typedef union _v4f32 {
     };
 } v4f32;
 
-typedef struct _m4x4f32 {
+typedef union _m4x4f32 {
     f32 c[16];
-} m4x4f32;
+    v4f32 cols[4];
+} m4f32;
+
+#define X_AXIS (v3f32){{1.0f, 0.0f, 0.0f}}
+#define Y_AXIS (v3f32){{0.0f, 1.0f, 0.0f}}
+#define Z_AXIS (v3f32){{0.0f, 0.0f, 1.0f}}
+
+#define X_AXIS_INV (v3f32){{-1.0f, 0.0f, 0.0f}}
+#define Y_AXIS_INV (v3f32){{0.0f, -1.0f, 0.0f}}
+#define Z_AXIS_INV (v3f32){{0.0f, 0.0f, -1.0f}}
 
 // Debug
 void v2f32_print(v2f32 v);
 void v3f32_print(v3f32 v);
 void v4f32_print(v4f32 v);
-void m4x4f32_print(m4x4f32 m);
+void m4f32_print(m4f32 m);
 
 //
 // 2D Vector functions
@@ -115,6 +122,15 @@ f32 v4f32_dot(v4f32 u, v4f32 v);
 // Matrix 4x4 functions
 //
 
-m4x4f32 m4x4f32_identity();
+m4f32 m4f32_identity();
+
+// Transform
+m4f32 m4f32_translate(m4f32 m, v3f32 v);
+m4f32 m4f32_rotate(m4f32 matrix, f32 angle, v3f32 axis);
+m4f32 m4f32_scale(m4f32 m, v3f32 v);
+m4f32 m4f32_look_at(v3f32 eye, v3f32 center, v3f32 up);
+
+// Projection
+m4f32 m4f32_perspective(f32 fovy, f32 aspect_ratio, f32 z_near, f32 z_far);
 
 #endif // _FINCH_MATH_LIN_ALG_H
