@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define VSYNC 0
+#define VSYNC 1
 
 static Vertex vertices[] = {
     {
