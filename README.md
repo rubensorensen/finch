@@ -6,7 +6,7 @@
 ```console
 $ cd examples/sandbox
 $ glslc assets/shaders/shader.vert -o assets/shaders/vert.spv
-$ glsl assets/shaders/shader.frag -o assets/shaders/frag.spv
+$ glslc assets/shaders/shader.frag -o assets/shaders/frag.spv
 $ make
 $ cd run_tree_debug && ./sandbox
 ```
