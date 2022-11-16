@@ -1,7 +1,7 @@
-#ifndef FINCH_UTILS_LOG_H
-#define FINCH_UTILS_LOG_H
+#ifndef _FINCH_LOG_H
+#define _FINCH_LOG_H
 
-#include "finch/core/core.h"
+#include "finch/core.h"
 
 #include <stdio.h>
 
@@ -56,4 +56,4 @@ void fc_logger_log(char* name, FcLogLevel level,
 
 #endif // FINCH_LOGGING
 
-#endif // FINCH_UTILS_LOG_H
+#endif // _FINCH_LOG_H

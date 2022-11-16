@@ -1,5 +1,5 @@
-#include "finch/utils/utils.h"
-#include "finch/utils/log.h"
+#include "finch/utils.h"
+#include "finch/log.h"
 
 #include <math.h>
 

@@ -1,6 +1,6 @@
-#include "finch/utils/log.h"
-#include "finch/core/core.h"
-#include "finch/platform/platform.h"
+#include "finch/log.h"
+#include "finch/core.h"
+#include "finch/platform.h"
 
 #include <stdio.h>
 #include <stdlib.h>

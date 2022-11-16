@@ -1,5 +1,5 @@
-#include "finch/rendering/vulkan/vulkan.h"
-#include "finch/platform/linux/linux_finch.h"
+#include "finch/vulkan.h"
+#include "finch/linux_finch.h"
 
 extern X11State* x11_get_ptr_to_state(void);
 

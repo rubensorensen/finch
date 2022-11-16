@@ -1,13 +1,13 @@
-#include "finch/rendering/vulkan/vulkan.h"
-#include "finch/utils/log.h"
-#include "finch/utils/utils.h"
-#include "finch/application/application.h"
-#include "finch/platform/platform.h"
+#include "finch/vulkan.h"
+#include "finch/log.h"
+#include "finch/utils.h"
+#include "finch/application.h"
+#include "finch/platform.h"
 
 #include <stdlib.h>
 #include <string.h>
 
-#define VSYNC 1
+#define VSYNC 0
 
 static Vertex vertices[] = {
     {

@@ -1,17 +1,18 @@
 #define _POSIX_C_SOURCE 199309L
 
-#include "finch/core/core.h"
-#include "finch/utils/utils.h"
-#include "finch/utils/log.h"
-#include "finch/core/events.h"
-#include "finch/application/application.h"
+#include "finch/core.h"
+#include "finch/utils.h"
+#include "finch/log.h"
+#include "finch/events.h"
+#include "finch/application.h"
+
+#include "finch/linux_finch.h"
+#include "finch/vulkan.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 
-#include "finch/platform/linux/linux_finch.h"
-#include "finch/rendering/vulkan/vulkan.h"
 
 static X11State x11_state;
 

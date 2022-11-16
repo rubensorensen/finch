@@ -1,8 +1,8 @@
-#include "finch/core/core.h"
-#include "finch/application/application.h"
-#include "finch/utils/log.h"
-#include "finch/platform/platform.h"
-#include "finch/math/lin_alg.h"
+#include "finch/core.h"
+#include "finch/application.h"
+#include "finch/log.h"
+#include "finch/platform.h"
+#include "finch/math.h"
 
 #include <stdio.h>
 #include <stdlib.h>

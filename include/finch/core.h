@@ -1,5 +1,5 @@
-#ifndef FINCH_CORE_CORE_H
-#define FINCH_CORE_CORE_H
+#ifndef _FINCH_CORE_H
+#define _FINCH_CORE_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -24,4 +24,4 @@ typedef struct _WindowAttributes {
     u32 width, height;
 } WindowAttributes;
 
-#endif // FINCH_CORE_CORE_H
+#endif // _FINCH_CORE_H

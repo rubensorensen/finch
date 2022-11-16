@@ -1,4 +1,4 @@
-#include "finch/math/lin_alg.h"
+#include "finch/math.h"
 
 #include <stdio.h>
 
@@ -541,4 +541,10 @@ m4f32_perspective(f32 fovy, f32 aspect_ratio, f32 z_near, f32 z_far)
 
     /* result.cols[1].c[1] *= -1; */
     return result;
+}
+
+f32
+radians(f32 deg)
+{
+    return deg * PI / 180.0f;
 }

@@ -1,8 +1,19 @@
-#ifndef _FINCH_MATH_LIN_ALG_H
-#define _FINCH_MATH_LIN_ALG_H
+#ifndef _FINCH_MATH_H
+#define _FINCH_MATH_H
 
-#include "finch/math/common.h"
-#include "finch/core/core.h"
+#include "finch/core.h"
+
+#include <math.h>
+
+#define PI  3.14159265358979323846
+#define TAU (2*PI)
+
+#define sqrt(x) (f32)sqrtf((float)(x))
+#define sin(x)  (f32)sinf((float)(x))
+#define cos(x)  (f32)cosf((float)(x))
+#define tan(x)  (f32)tanf((float)(x))
+
+f32 radians(f32 deg);
 
 typedef union _v2f32 {
     f32 c[2];
@@ -133,4 +144,4 @@ m4f32 m4f32_look_at(v3f32 eye, v3f32 center, v3f32 up);
 // Projection
 m4f32 m4f32_perspective(f32 fovy, f32 aspect_ratio, f32 z_near, f32 z_far);
 
-#endif // _FINCH_MATH_LIN_ALG_H
+#endif // _FINCH_MATH_H

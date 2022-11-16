@@ -1,7 +1,7 @@
-#ifndef FINCH_CORE_EVENTS_H
-#define FINCH_CORE_EVENTS_H
+#ifndef _FINCH_EVENTS_H
+#define _FINCH_EVENTS_H
 
-#include "finch/core/core.h"
+#include "finch/core.h"
 
 typedef enum _FcEventType {
     FC_EVENT_TYPE_NONE = 0,
@@ -108,4 +108,4 @@ typedef struct _FcEvent {
     s8 scroll_wheel_horizontal_direction;
 } FcEvent;
 
-#endif // FINCH_CORE_EVENTS_H
+#endif // _FINCH_EVENTS_H

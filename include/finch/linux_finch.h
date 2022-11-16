@@ -1,7 +1,7 @@
-#ifndef LINUX_FINCH_H
-#define LINUX_FINCH_H
+#ifndef _FINCH_LINUX_FINCH_H
+#define _FINCH_LINUX_FINCH_H
 
-#include "finch/core/core.h"
+#include "finch/core.h"
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -19,4 +19,4 @@ typedef struct _X11State {
 
 void x11_get_framebuffer_size(X11State* x11_state, u32* width, u32* height);
 
-#endif // LINUX_FINCH_H
+#endif // _FINCH_LINUX_FINCH_H

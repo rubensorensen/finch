@@ -1,2 +1,3 @@
 build/
-run_tree/
+run_tree_debug/
+run_tree_release/

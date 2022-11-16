@@ -1,7 +1,7 @@
-#ifndef FINCH_APPLICATION_APPLICATION_H
-#define FINCH_APPLICATION_APPLICATION_H
+#ifndef _FINCH_APPLICATION_H
+#define _FINCH_APPLICATION_H
 
-#include "finch/core/events.h"
+#include "finch/events.h"
 
 #define MAX_EVENTS 1024
 
@@ -35,4 +35,4 @@ void fc_application_init(ApplicationState*);
 void fc_application_update(ApplicationState*, f64);
 void fc_application_deinit(ApplicationState*);
 
-#endif // FINCH_APPLICATION_APPLICATION_H
+#endif // _FINCH_APPLICATION_H

@@ -1,7 +1,7 @@
-#ifndef FINCH_PLATFORM_PLATFORM_H
-#define FINCH_PLATFORM_PLATFORM_H
+#ifndef _FINCH_PLATFORM_H
+#define _FINCH_PLATFORM_H
 
-#include "finch/application/application.h"
+#include "finch/application.h"
 
 // Implemented in platform layer
 void platform_init(ApplicationState*);
@@ -17,4 +17,4 @@ b32 platform_stderr_is_terminal();
 void platform_set_terminal_color(FcTerminalColor);
 void platform_get_framebuffer_size(u32* width, u32* height);
 
-#endif // FINCH_PLATFORM_PLATFORM_H
+#endif // _FINCH_PLATFORM_H

@@ -1,8 +1,8 @@
-#ifndef VULKAN_H
-#define VULKAN_H
+#ifndef _FINCH_VULKAN_H
+#define _FINCH_VULKAN_H
 
-#include "finch/core/core.h"
-#include "finch/math/lin_alg.h"
+#include "finch/core.h"
+#include "finch/math.h"
 
 #ifdef FINCH_LINUX
 #define VK_USE_PLATFORM_XLIB_KHR
@@ -136,4 +136,4 @@ typedef struct _UniformBufferObject {
     m4f32 proj;
 } UniformBufferObject;
 
-#endif // LINUX_VULKAN_H
+#endif // _FINCH_VULKAN_H
