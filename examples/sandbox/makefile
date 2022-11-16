@@ -58,13 +58,9 @@ dirs:
 clean:
 	@echo "Deleting directories"
 	@$(RM) -rf build/
-	@$(RM) run_tree_debug
-	@$(RM) run_tree_release
 
 .PHONY: all
 all: $(BUILD_PATH)/$(BIN)
-	@$(RM) run_tree_$(RELEASE_MODE)
-	ln -s $(BUILD_PATH)/run_tree run_tree_$(RELEASE_MODE)
 
 $(BUILD_PATH)/$(BIN): $(OBJ)
 	@# @echo "Linking: $^ -> $@"
