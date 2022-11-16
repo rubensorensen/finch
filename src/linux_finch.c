@@ -22,8 +22,7 @@ X11State* x11_get_ptr_to_state(void)
     return &x11_state;
 }
 
-extern void vulkan_draw_frame();
-extern void vulkan_set_framebuffer_resized(b32);
+extern void vulkan_draw_frame(f64 dt);
 
 void linux_draw_frame(f64 dt)
 {
@@ -97,7 +96,6 @@ static void x11_resize_window(X11State* x11_state, u32 new_width, u32 new_height
 {
     x11_state->window_attributes.width  = new_width;
     x11_state->window_attributes.height = new_height;
-    vulkan_set_framebuffer_resized(true);
 }
 
 static void x11_handle_events(X11State* x11_state, ApplicationState* application_state)

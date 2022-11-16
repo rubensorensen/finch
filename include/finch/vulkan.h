@@ -93,38 +93,14 @@ typedef struct _DescriptorSets {
     VkDescriptorSet sets[MAX_FRAMES_IN_FLIGHT];    
 } DescriptorSets;
 
-typedef struct _VulkanState {    
-    VkInstance       instance;
-    VkSurfaceKHR     surface;
+typedef struct _VulkanCore {
+    VkInstance instance;
+    VkSurfaceKHR surface;
+    VkPhysicalDevice phy_device;
+    VkDevice device;
     
-    VkPhysicalDevice         physical_device;
-    VkDevice                 device;
-    VulkanQueueFamilyIndices indices;
-    VulkanQueues             queues;
-
-    VkBuffer vertex_buffer;
-    VkDeviceMemory vertex_buffer_memory;
-    VkBuffer index_buffer;
-    VkDeviceMemory index_buffer_memory;
-    
-    UniformBuffers uniform_buffers;
-    
-    VkRenderPass         render_pass;
-
-    VkDescriptorSetLayout descriptor_set_layout;
-    VkDescriptorPool descriptor_pool;
-    DescriptorSets descriptor_sets;
-    
-    VulkanPipeline       pipeline;
-    VkCommandPool        command_pool;
-    VulkanCommandBuffers command_buffers;
-
     VulkanSyncPrimitives          sync_objs;
-    VulkanSwapChainInfo           swap_chain_info;
-    VulkanFramebuffers            framebuffers;
-    u32                           current_frame;
-    b32                           framebuffer_resized;
-} VulkanState;
+} VulkanCore;
 
 typedef struct _VulkanAttributeDescriptions {
     VkVertexInputAttributeDescription descs[2];
