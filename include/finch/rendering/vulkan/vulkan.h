@@ -83,6 +83,16 @@ typedef struct _Vertex {
     v3f32 color;
 } Vertex;
 
+typedef struct _UniformBuffers {
+    VkBuffer buffers[MAX_FRAMES_IN_FLIGHT];
+    VkDeviceMemory memories[MAX_FRAMES_IN_FLIGHT];
+    void* mapped[MAX_FRAMES_IN_FLIGHT];
+} UniformBuffers;
+
+typedef struct _DescriptorSets {
+    VkDescriptorSet sets[MAX_FRAMES_IN_FLIGHT];    
+} DescriptorSets;
+
 typedef struct _VulkanState {    
     VkInstance       instance;
     VkSurfaceKHR     surface;
@@ -96,8 +106,15 @@ typedef struct _VulkanState {
     VkDeviceMemory vertex_buffer_memory;
     VkBuffer index_buffer;
     VkDeviceMemory index_buffer_memory;
-
+    
+    UniformBuffers uniform_buffers;
+    
     VkRenderPass         render_pass;
+
+    VkDescriptorSetLayout descriptor_set_layout;
+    VkDescriptorPool descriptor_pool;
+    DescriptorSets descriptor_sets;
+    
     VulkanPipeline       pipeline;
     VkCommandPool        command_pool;
     VulkanCommandBuffers command_buffers;
@@ -112,5 +129,11 @@ typedef struct _VulkanState {
 typedef struct _VulkanAttributeDescriptions {
     VkVertexInputAttributeDescription descs[2];
 } VulkanAttributeDescriptions;
+
+typedef struct _UniformBufferObject {
+    m4f32 model;
+    m4f32 view;
+    m4f32 proj;
+} UniformBufferObject;
 
 #endif // LINUX_VULKAN_H

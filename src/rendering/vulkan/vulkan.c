@@ -846,7 +846,8 @@ static VulkanAttributeDescriptions vulkan_get_attrib_descs()
 }
 
 static VulkanPipeline vulkan_create_graphics_pipeline(VkDevice device,
-                                                      VkRenderPass render_pass)
+                                                      VkRenderPass render_pass,
+                                                      VkDescriptorSetLayout descriptor_set_layout)
 {
     VulkanPipeline pipeline;
     
@@ -927,7 +928,7 @@ static VulkanPipeline vulkan_create_graphics_pipeline(VkDevice device,
     rasterizer.polygonMode                            = VK_POLYGON_MODE_FILL;
     rasterizer.lineWidth                              = 1.0f;
     rasterizer.cullMode                               = VK_CULL_MODE_BACK_BIT;
-    rasterizer.frontFace                              = VK_FRONT_FACE_CLOCKWISE;
+    rasterizer.frontFace                              = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer.depthBiasEnable                        = VK_FALSE;
     rasterizer.depthBiasConstantFactor                = 0.0f;
     rasterizer.depthBiasClamp                         = 0.0f;
@@ -974,8 +975,8 @@ static VulkanPipeline vulkan_create_graphics_pipeline(VkDevice device,
     // Pipeline layout
     VkPipelineLayoutCreateInfo pipeline_layout_info = {0};
     pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipeline_layout_info.setLayoutCount         = 0;
-    pipeline_layout_info.pSetLayouts            = NULL;
+    pipeline_layout_info.setLayoutCount         = 1;
+    pipeline_layout_info.pSetLayouts            = &descriptor_set_layout;
     pipeline_layout_info.pushConstantRangeCount = 0;
     pipeline_layout_info.pPushConstantRanges    = NULL;
 
@@ -1100,6 +1101,7 @@ static void vulkan_record_command_buffer(VkCommandBuffer command_buffer, u32 ima
     vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 
     /* vkCmdDraw(command_buffer, sizeof(vertices) / sizeof(vertices[0]), 1, 0, 0); */
+    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkan_state.pipeline.layout, 0, 1, &vulkan_state.descriptor_sets.sets[vulkan_state.current_frame], 0, NULL);
     vkCmdDrawIndexed(command_buffer, sizeof(indices) / sizeof(indices[0]), 1, 0, 0, 0);
     
     vkCmdEndRenderPass(command_buffer);
@@ -1167,12 +1169,37 @@ void vulkan_recreate_swap_chain()
 
 }
 
-void vulkan_draw_frame()
+static void vulkan_update_uniform_buffer(f64 dt, u32 current_image, VkExtent2D extent, UniformBuffers uniform_buffers)
+{
+    static f32 time = 0;
+    time += (f32)dt;
+
+    UniformBufferObject ubo = {0};
+    ubo.model = m4f32_identity();
+    /* ubo.model = m4f32_scale(ubo.model, (v3f32){{2.0f, 2.0f, 2.0f}}); */
+    /* ubo.model = m4f32_translate(ubo.model, (v3f32){{-1.0, 0.0f, 0.0f}}); */
+    ubo.model = m4f32_rotate(ubo.model, time * radians(90.0f), Z_AXIS);
+    
+    ubo.view = m4f32_look_at((v3f32){{0.0f, 2.0f, 1.0f}},
+                             (v3f32){{0.0f, 0.0f, 0.0f}},
+                             Z_AXIS);
+    ubo.proj = m4f32_perspective(radians(45.0f), extent.width / (f32)extent.height,
+                                 0.1f, 10.0f);
+    ubo.proj.cols[1].c[1] *= -1;
+
+    memcpy(uniform_buffers.mapped[current_image], &ubo, sizeof(ubo));
+}
+
+void vulkan_draw_frame(f64 dt)
 {
     vkWaitForFences(vulkan_state.device, 1,
                     &vulkan_state.sync_objs.in_flight_fences[vulkan_state.current_frame],
                     VK_TRUE, UINT64_MAX);
 
+    vulkan_update_uniform_buffer(dt, vulkan_state.current_frame,
+                                 vulkan_state.swap_chain_info.extent,
+                                 vulkan_state.uniform_buffers);
+    
     u32 image_index;
     VkResult result;
     result = vkAcquireNextImageKHR(vulkan_state.device, vulkan_state.swap_chain_info.swap_chain,
@@ -1395,6 +1422,105 @@ static void vulkan_create_index_buffer(VkPhysicalDevice phys_dev, VkDevice dev,
     vkFreeMemory(dev, staging_buffer_memory, NULL);
 }
 
+static VkDescriptorSetLayout vulkan_create_descriptor_set_layout(VkDevice dev)
+{
+    VkDescriptorSetLayoutBinding ubo_layout_binding = {0};
+    ubo_layout_binding.binding = 0;
+    ubo_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    ubo_layout_binding.descriptorCount = 1;
+    ubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    ubo_layout_binding.pImmutableSamplers = NULL;
+
+    VkDescriptorSetLayoutCreateInfo layout_info = {0};
+    layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layout_info.bindingCount = 1;
+    layout_info.pBindings = &ubo_layout_binding;
+
+    VkDescriptorSetLayout layout;
+    VkResult result = vkCreateDescriptorSetLayout(dev, &layout_info, NULL, &layout);
+    VULKAN_VERIFY(result);
+
+    return layout;
+}
+
+static UniformBuffers vulkan_create_uniform_buffers(VkPhysicalDevice phys_dev, VkDevice dev)
+{
+    VkDeviceSize buffer_size = sizeof(UniformBufferObject);
+
+    UniformBuffers uniform_buffers = {0};
+    for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+        vulkan_create_buffer(phys_dev, dev, buffer_size,
+                             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                             &uniform_buffers.buffers[i],
+                             &uniform_buffers.memories[i]);
+        
+        vkMapMemory(dev, uniform_buffers.memories[i], 0,
+                    buffer_size, 0, &uniform_buffers.mapped[i]);
+    }
+
+    return uniform_buffers;
+}
+
+static VkDescriptorPool vulkan_create_descriptor_pool(VkDevice dev)
+{
+    VkDescriptorPoolSize pool_size = {0};
+    pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    pool_size.descriptorCount = (u32)MAX_FRAMES_IN_FLIGHT;
+
+    VkDescriptorPoolCreateInfo pool_info = {0};
+    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pool_info.poolSizeCount = 1;
+    pool_info.pPoolSizes = &pool_size;
+    pool_info.maxSets = (u32)MAX_FRAMES_IN_FLIGHT;
+
+    VkDescriptorPool descriptor_pool;
+    VkResult result = vkCreateDescriptorPool(dev, &pool_info, NULL, &descriptor_pool);
+    VULKAN_VERIFY(result);
+    
+    return descriptor_pool;
+}
+
+static DescriptorSets vulkan_create_descriptor_sets(VkDevice dev, VkDescriptorSetLayout layout, VkDescriptorPool descriptor_pool, UniformBuffers uniform_buffers)
+{
+    VkDescriptorSetLayout layouts[MAX_FRAMES_IN_FLIGHT];
+    for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+        layouts[i] = layout;
+    }
+
+    VkDescriptorSetAllocateInfo alloc_info = {0};
+    alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    alloc_info.descriptorPool = descriptor_pool;
+    alloc_info.descriptorSetCount = (u32)MAX_FRAMES_IN_FLIGHT;
+    alloc_info.pSetLayouts = layouts;
+
+    DescriptorSets descriptor_sets;
+    VkResult result = vkAllocateDescriptorSets(dev, &alloc_info, descriptor_sets.sets);
+    VULKAN_VERIFY(result);
+
+    for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+        VkDescriptorBufferInfo buffer_info = {0};
+        buffer_info.buffer = uniform_buffers.buffers[i];
+        buffer_info.offset = 0;
+        buffer_info.range = sizeof(UniformBufferObject);
+
+        VkWriteDescriptorSet descriptor_write = {0};
+        descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptor_write.dstSet = descriptor_sets.sets[i];
+        descriptor_write.dstBinding = 0;
+        descriptor_write.dstArrayElement = 0;
+        descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptor_write.descriptorCount = 1;
+        descriptor_write.pBufferInfo = &buffer_info;
+        descriptor_write.pImageInfo = NULL;
+        descriptor_write.pTexelBufferView = NULL;
+
+        vkUpdateDescriptorSets(dev, 1, &descriptor_write, 0, NULL);
+    }
+    
+    return descriptor_sets;
+}
+
 void vulkan_init(ApplicationState* app_state)
 {
     FC_INFO("Initializing Vulkan");
@@ -1422,9 +1548,11 @@ void vulkan_init(ApplicationState* app_state)
     vulkan_state.render_pass =
         vulkan_create_render_pass(vulkan_state.device,
                                   vulkan_state.swap_chain_info.image_format);
-    
+
+    vulkan_state.descriptor_set_layout = vulkan_create_descriptor_set_layout(vulkan_state.device);
     vulkan_state.pipeline = vulkan_create_graphics_pipeline(vulkan_state.device,
-                                                            vulkan_state.render_pass);
+                                                            vulkan_state.render_pass,
+                                                            vulkan_state.descriptor_set_layout);
     
     vulkan_state.framebuffers =
         vulkan_create_framebuffers(vulkan_state.device,
@@ -1445,6 +1573,11 @@ void vulkan_init(ApplicationState* app_state)
                                 &vulkan_state.index_buffer,
                                 &vulkan_state.index_buffer_memory);
 
+    vulkan_state.uniform_buffers = vulkan_create_uniform_buffers(vulkan_state.physical_device, vulkan_state.device);
+
+    vulkan_state.descriptor_pool = vulkan_create_descriptor_pool(vulkan_state.device);
+    vulkan_state.descriptor_sets = vulkan_create_descriptor_sets(vulkan_state.device, vulkan_state.descriptor_set_layout, vulkan_state.descriptor_pool, vulkan_state.uniform_buffers);
+
     vulkan_state.command_buffers =
         vulkan_create_command_buffers(vulkan_state.device, vulkan_state.command_pool,
                                       MAX_FRAMES_IN_FLIGHT);
@@ -1462,6 +1595,14 @@ void vulkan_deinit()
 
     vkDestroyPipeline(vulkan_state.device, vulkan_state.pipeline.graphics, NULL);
     vkDestroyPipelineLayout(vulkan_state.device, vulkan_state.pipeline.layout, NULL);
+    
+    for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+        vkDestroyBuffer(vulkan_state.device, vulkan_state.uniform_buffers.buffers[i], NULL);
+        vkFreeMemory(vulkan_state.device, vulkan_state.uniform_buffers.memories[i], NULL);
+    }
+
+    vkDestroyDescriptorPool(vulkan_state.device, vulkan_state.descriptor_pool, NULL);
+    vkDestroyDescriptorSetLayout(vulkan_state.device, vulkan_state.descriptor_set_layout, NULL);
     vkDestroyRenderPass(vulkan_state.device, vulkan_state.render_pass, NULL);
 
     for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {

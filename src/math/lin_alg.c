@@ -537,6 +537,8 @@ m4f32_perspective(f32 fovy, f32 aspect_ratio, f32 z_near, f32 z_far)
     result.cols[1].c[1] = 1.0f / tan_half_fovy;
     result.cols[2].c[2] = z_far / (z_near - z_far);
     result.cols[2].c[3] = -1.0f;
-    result.cols[3].c[2] = -(z_far * z_near) / (z_far - z_near);    
+    result.cols[3].c[2] = -(z_far * z_near) / (z_far - z_near);
+
+    /* result.cols[1].c[1] *= -1; */
     return result;
 }

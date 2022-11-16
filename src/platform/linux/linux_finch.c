@@ -21,12 +21,12 @@ X11State* x11_get_ptr_to_state(void)
     return &x11_state;
 }
 
-extern void vulkan_draw_frame(X11State*);
+extern void vulkan_draw_frame();
 extern void vulkan_set_framebuffer_resized(b32);
 
-void linux_draw_frame(void)
+void linux_draw_frame(f64 dt)
 {
-    vulkan_draw_frame(&x11_state);
+    vulkan_draw_frame(dt);
 }
 
 static s32 terminal_supports_colors = -1;
