@@ -48,7 +48,18 @@ static void x11_init(X11State* x11_state)
                                             0, 0,
                                             BlackPixel(x11_state->display, x11_state->screen));
 
+    // Set window titlebar name
     XStoreName(x11_state->display, x11_state->window, x11_state->window_attributes.title);
+
+    // Set application name and class (Not titlebar)
+    XClassHint* class_hint = XAllocClassHint();
+    if (class_hint)
+    {
+        class_hint->res_name = class_hint->res_class = x11_state->window_attributes.title;
+        XSetClassHint(x11_state->display, x11_state->window, class_hint);
+        XFree(class_hint);
+    }
+    
     x11_state->gc = XCreateGC(x11_state->display, x11_state->window, 0, NULL);
 
     x11_state->wm_delete_window = XInternAtom(x11_state->display,
