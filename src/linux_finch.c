@@ -97,7 +97,8 @@ void x11_get_framebuffer_size(X11State* x11_state, u32* width, u32* height)
     }
 }
 
-static void game_resize(ApplicationState* application_state, u32 new_width, u32 new_height)
+static void
+window_resize(ApplicationState* application_state, u32 new_width, u32 new_height)
 {
     application_state->width_px  = new_width;
     application_state->height_px = new_height;
@@ -427,7 +428,7 @@ static void x11_handle_events(X11State* x11_state, ApplicationState* application
                 if ((u32)xce.width != x11_state->window_attributes.width ||
                     (u32)xce.height != x11_state->window_attributes.height) {
                     x11_resize_window(x11_state, (u32)xce.width, (u32)xce.height);
-                    game_resize(application_state,
+                    window_resize(application_state,
                                 x11_state->window_attributes.width,
                                 x11_state->window_attributes.height);
                 }
@@ -473,7 +474,7 @@ void platform_init(ApplicationState* application_state)
     x11_state.window_attributes = window_attributes;
     x11_init(&x11_state);
 
-    game_resize(application_state,
+    window_resize(application_state,
                 x11_state.window_attributes.width,
                 x11_state.window_attributes.height);
 }
