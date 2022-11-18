@@ -57,6 +57,9 @@ static VulkanSwapChainInfo g_swap_chain_info;
 static VulkanFramebuffers g_framebuffers;
 
 static u32 g_current_frame;
+static b32 g_vulkan_initialized;
+
+b32 vulkan_initialized(void) { return g_vulkan_initialized; }
 
 static const char* g_instance_extensions[] = {
     VK_KHR_SURFACE_EXTENSION_NAME,
@@ -1588,6 +1591,7 @@ vulkan_init(ApplicationState* app_state)
     
     init_sync_objects();    
 
+    g_vulkan_initialized = true;
     FC_INFO("Vulkan initialized");
 }
 

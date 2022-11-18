@@ -48,8 +48,8 @@ int main(void)
     vulkan_wait_for_device_idle();
 
     vulkan_deinit();
-    platform_deinit(&application_state);
     fc_application_deinit(&application_state);
+    platform_deinit(&application_state);
 
     return EXIT_SUCCESS;
 }

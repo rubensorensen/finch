@@ -48,14 +48,24 @@ static void x11_init(X11State* x11_state)
                                             0, 0,
                                             BlackPixel(x11_state->display, x11_state->screen));
 
-    // Set window titlebar name
-    XStoreName(x11_state->display, x11_state->window, x11_state->window_attributes.title);
+    // TODO: Use XCreateWindow rather than XCreateSimpleWindow
+    // For resizing to look better, remember to set the
+    // CWBitGravity valuemask
+    XSetWindowAttributes win_attribs;
+    win_attribs.bit_gravity = NorthWestGravity;
+    XChangeWindowAttributes(x11_state->display, x11_state->window,
+                            CWBitGravity, &win_attribs);
 
-    // Set application name and class (Not titlebar)
+    // Set window titlebar name
+    XStoreName(x11_state->display, x11_state->window,
+               x11_state->window_attributes.title);
+    
+    // Set window (Not titlebar) name and class
     XClassHint* class_hint = XAllocClassHint();
     if (class_hint)
     {
-        class_hint->res_name = class_hint->res_class = x11_state->window_attributes.title;
+        class_hint->res_name = x11_state->window_attributes.title;
+        class_hint->res_class = "Finch"; //x11_state->window_attributes.title;
         XSetClassHint(x11_state->display, x11_state->window, class_hint);
         XFree(class_hint);
     }
@@ -77,9 +87,15 @@ static void x11_init(X11State* x11_state)
 
 static void x11_deinit(X11State* x11_state)
 {
+    XUnmapWindow(x11_state->display, x11_state->window);
     XFreeGC(x11_state->display, x11_state->gc);
     XDestroyWindow(x11_state->display, x11_state->window);
-    XCloseDisplay(x11_state->display);
+
+    // Todo: I feel like I should be calling XCloseDisplay, but this leads
+    // to a segfault when running on X11 (Not Wayland). So for now I just
+    // unmap and destroy the window, and let the windowing system handle
+    // the display closing.
+    /* XCloseDisplay(x11_state->display); */
 }
 
 void x11_get_framebuffer_size(X11State* x11_state, u32* width, u32* height)
@@ -97,11 +113,15 @@ void x11_get_framebuffer_size(X11State* x11_state, u32* width, u32* height)
     }
 }
 
+extern b32 vulkan_initialized(void);
+extern void recreate_swap_chain(void);
+
 static void
 window_resize(ApplicationState* application_state, u32 new_width, u32 new_height)
 {
     application_state->width_px  = new_width;
     application_state->height_px = new_height;
+    if (vulkan_initialized()) recreate_swap_chain();
 }
 
 static void x11_resize_window(X11State* x11_state, u32 new_width, u32 new_height)
