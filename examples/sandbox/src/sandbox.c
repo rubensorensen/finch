@@ -13,6 +13,8 @@ typedef struct _ApplicationData {
     f32 horizontal_offset;
     f32 vertical_offset;
     f32 velocity;
+
+    b32 cursor_hidden;
 } ApplicationData;
 
 static ApplicationData* app_data;
@@ -34,6 +36,17 @@ static void handle_events(ApplicationState* application_state)
                            e.scroll_wheel_horizontal_direction > 0 ? "right" : "left");
                 }
             } break;
+            case FC_EVENT_TYPE_KEY_PRESSED: {
+                if (e.key == FC_KEY_TAB) {
+                    app_data->cursor_hidden ?
+                        platform_show_cursor() :
+                        platform_hide_cursor();
+                    app_data->cursor_hidden = !app_data->cursor_hidden;
+                } else if (e.key == FC_KEY_SPACE) {
+                    platform_move_cursor(application_state->width_px / 2,
+                                         application_state->height_px / 2);
+                }
+            }
             default: {}
         }
     }

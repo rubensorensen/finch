@@ -11,6 +11,8 @@ typedef struct _X11State {
     Display *display;
     int      screen;
     Window   window;
+    Visual*  visual;
+    int      depth;
     GC       gc;
     Atom     wm_delete_window;
 

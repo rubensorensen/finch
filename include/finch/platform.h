@@ -16,5 +16,8 @@ b32 platform_stdout_is_terminal();
 b32 platform_stderr_is_terminal();
 void platform_set_terminal_color(FcTerminalColor);
 void platform_get_framebuffer_size(u32* width, u32* height);
+void platform_show_cursor();
+void platform_hide_cursor();
+void platform_move_cursor(u32 x, u32 y);
 
 #endif // _FINCH_PLATFORM_H

@@ -13,7 +13,6 @@
 #include <stdlib.h>
 #include <errno.h>
 
-
 static X11State x11_state;
 
 // To be used by modules requiring access to x11 state
@@ -31,6 +30,33 @@ void linux_draw_frame(f64 dt)
 
 static s32 terminal_supports_colors = -1;
 
+static void x11_hide_cursor(Display* display, Window window)
+{    
+    XColor color  = { 0 };
+    const char data[] = { 0 };
+
+    Pixmap pixmap = XCreateBitmapFromData(display, window, data, 1, 1);
+    Cursor cursor = XCreatePixmapCursor(display, pixmap, pixmap, &color, &color, 0, 0);
+    
+    XFreePixmap(display, pixmap);
+    
+    XSetWindowAttributes attribs = { .cursor = cursor };
+
+    XChangeWindowAttributes(display, window, CWCursor, &attribs);
+    XFreeCursor(display, cursor);
+}
+
+static void x11_show_cursor(Display* display, Window window)
+{
+    XSetWindowAttributes attribs = { .cursor = None };
+    XChangeWindowAttributes(display, window, CWCursor, &attribs);
+}
+
+static void x11_move_cursor(Display* display, Window window, u32 x, u32 y)
+{
+    XWarpPointer(display, None, window, 0, 0, 0, 0, x, y);
+}
+
 static void x11_init(X11State* x11_state)
 {
     x11_state->display = XOpenDisplay(NULL);
@@ -40,22 +66,36 @@ static void x11_init(X11State* x11_state)
     }
 
     x11_state->screen = DefaultScreen(x11_state->display);
-    x11_state->window = XCreateSimpleWindow(x11_state->display,
-                                            XDefaultRootWindow(x11_state->display),
-                                            0, 0,
-                                            x11_state->window_attributes.width,
-                                            x11_state->window_attributes.height,
-                                            0, 0,
-                                            BlackPixel(x11_state->display, x11_state->screen));
+    
+    x11_state->visual = DefaultVisual(x11_state->display, x11_state->screen);
+    x11_state->depth  = DefaultDepth(x11_state->display, x11_state->screen);
+    
+    XSetWindowAttributes win_attribs = {0};
+    win_attribs.background_pixel = BlackPixel(x11_state->display, x11_state->screen);
+    win_attribs.bit_gravity = StaticGravity;
+    win_attribs.backing_store = WhenMapped;
+    win_attribs.event_mask = (KeyPressMask | KeyReleaseMask | ButtonPressMask |
+                              ButtonReleaseMask | PointerMotionMask |
+                              StructureNotifyMask | ExposureMask);
 
-    // TODO: Use XCreateWindow rather than XCreateSimpleWindow
-    // For resizing to look better, remember to set the
-    // CWBitGravity valuemask
-    XSetWindowAttributes win_attribs;
-    win_attribs.bit_gravity = NorthWestGravity;
-    XChangeWindowAttributes(x11_state->display, x11_state->window,
-                            CWBitGravity, &win_attribs);
+    x11_state->window = XCreateWindow(x11_state->display,
+                                      XRootWindow(x11_state->display, x11_state->screen),
+                                      0, 0,
+                                      x11_state->window_attributes.width,
+                                      x11_state->window_attributes.height,
+                                      0, x11_state->depth, InputOutput,
+                                      x11_state->visual,
+                                      CWBackPixel | CWBitGravity | CWBackingStore |
+                                      CWEventMask,
+                                      &win_attribs);
+    x11_state->gc = XCreateGC(x11_state->display, x11_state->window, 0, NULL);
 
+    x11_state->wm_delete_window = XInternAtom(x11_state->display,
+                                              "WM_DELETE_WINDOW", False);
+    XSetWMProtocols(x11_state->display, x11_state->window,
+                    &x11_state->wm_delete_window, 1);
+    
+    
     // Set window titlebar name
     XStoreName(x11_state->display, x11_state->window,
                x11_state->window_attributes.title);
@@ -65,22 +105,10 @@ static void x11_init(X11State* x11_state)
     if (class_hint)
     {
         class_hint->res_name = x11_state->window_attributes.title;
-        class_hint->res_class = "Finch"; //x11_state->window_attributes.title;
+        class_hint->res_class = "Finch";
         XSetClassHint(x11_state->display, x11_state->window, class_hint);
         XFree(class_hint);
-    }
-    
-    x11_state->gc = XCreateGC(x11_state->display, x11_state->window, 0, NULL);
-
-    x11_state->wm_delete_window = XInternAtom(x11_state->display,
-                                              "WM_DELETE_WINDOW", False);
-    XSetWMProtocols(x11_state->display, x11_state->window, &x11_state->wm_delete_window, 1);
-
-    XSelectInput(x11_state->display, x11_state->window,
-                 KeyPressMask | KeyReleaseMask |
-                 ButtonPressMask | ButtonReleaseMask |
-                 PointerMotionMask |
-                 StructureNotifyMask | ExposureMask);
+    }    
 
     XMapWindow(x11_state->display, x11_state->window);
 }
@@ -135,6 +163,7 @@ static void x11_handle_events(X11State* x11_state, ApplicationState* application
     application_state->unhandled_events = 0;
     application_state->input_state.mouse_dx = 0;
     application_state->input_state.mouse_dy = 0;
+    
     while (XPending(x11_state->display) > 0) {
         FcEvent finch_event = {0};
 
@@ -592,4 +621,23 @@ void platform_set_terminal_color(FcTerminalColor color) {
 void platform_get_framebuffer_size(u32* width, u32* height)
 {
     x11_get_framebuffer_size(&x11_state, width, height);
+}
+
+void
+platform_show_cursor(void)
+{
+    x11_show_cursor(x11_state.display, x11_state.window);
+}
+
+void
+platform_hide_cursor(void)
+{
+    x11_hide_cursor(x11_state.display, x11_state.window);
+}
+
+
+void
+platform_move_cursor(u32 x, u32 y)
+{
+    x11_move_cursor(x11_state.display, x11_state.window, x, y);
 }
