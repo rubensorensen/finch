@@ -93,7 +93,6 @@ VkResult create_debug_utils_messenger_EXT(const VkDebugUtilsMessengerCreateInfoE
     }
     return func(g_core.instance, create_info, allocator, debug_messenger);
 }
-
 void destroy_debug_utils_messenger_EXT(VkDebugUtilsMessengerEXT debug_messenger,
                                        const VkAllocationCallbacks* allocator)
 {
@@ -115,7 +114,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(
 
     switch (messageSeverity) {
         case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT: {
-            FC_TRACE("<VULKAN VALIDATION LAYER> %s", pCallbackData->pMessage);
+            /* FC_TRACE("<VULKAN VALIDATION LAYER> %s", pCallbackData->pMessage); */
         } break;
         case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT: {
             FC_INFO("<VULKAN VALIDATION LAYER> %s", pCallbackData->pMessage);
@@ -1219,6 +1218,7 @@ vulkan_draw_frame(f64 dt)
                                    VK_NULL_HANDLE, &image_index);
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         recreate_swap_chain();
+        vulkan_draw_frame(dt);
         return;
     }
     VULKAN_VERIFY(result);

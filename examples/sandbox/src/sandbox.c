@@ -46,7 +46,16 @@ static void handle_events(ApplicationState* application_state)
                     platform_move_cursor(application_state->width_px / 2,
                                          application_state->height_px / 2);
                 }
-            }
+                else if (e.key == FC_KEY_ENTER) {
+                    platform_toggle_fullscreen();
+                }
+                else if(e.key == FC_KEY_C) {
+                    platform_toggle_cursor_confinement();
+                }
+                else if (e.key == FC_KEY_V) {
+                    platform_toggle_cursor_centered();
+                }
+            } break;
             default: {}
         }
     }
@@ -85,7 +94,7 @@ void fc_application_update(ApplicationState* application_state, f64 dt)
         app_data->horizontal_offset -= app_data->velocity * dt;
     }
     if (input_state->button_is_down[FC_BUTTON_LEFT]) {
-        FC_INFO("dx: %d, dy: %d", input_state->mouse_dx, input_state->mouse_dy);
+        /* FC_INFO("dx: %d, dy: %d", input_state->mouse_dx, input_state->mouse_dy); */
         app_data->horizontal_offset += input_state->mouse_dx;
         app_data->vertical_offset   += input_state->mouse_dy;
     }

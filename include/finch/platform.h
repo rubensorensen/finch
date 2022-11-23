@@ -19,5 +19,8 @@ void platform_get_framebuffer_size(u32* width, u32* height);
 void platform_show_cursor();
 void platform_hide_cursor();
 void platform_move_cursor(u32 x, u32 y);
+void platform_toggle_fullscreen();
+void platform_toggle_cursor_centered();
+void platform_toggle_cursor_confinement();
 
 #endif // _FINCH_PLATFORM_H

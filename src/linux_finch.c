@@ -57,6 +57,39 @@ static void x11_move_cursor(Display* display, Window window, u32 x, u32 y)
     XWarpPointer(display, None, window, 0, 0, 0, 0, x, y);
 }
 
+static void x11_toggle_fullscreen(Display* display, Window window)
+{
+    Atom wm_state = XInternAtom (display, "_NET_WM_STATE", true );
+    Atom wm_fullscreen = XInternAtom (display, "_NET_WM_STATE_FULLSCREEN", true );
+
+    XChangeProperty(display, window, wm_state, XA_ATOM, 32,
+                    PropModeReplace, (unsigned char *)&wm_fullscreen, 1);
+    XEvent event = {0};
+    event.type = ClientMessage;
+    event.xclient.window = window;
+    event.xclient.message_type = wm_state;
+    event.xclient.format = 32;
+    event.xclient.data.l[0] = 2;
+    event.xclient.data.l[1] = wm_fullscreen;
+    event.xclient.data.l[2] = 0;
+    event.xclient.data.l[3] = 0;
+    event.xclient.data.l[4] = 0;
+    XSendEvent(display, XDefaultRootWindow(display), False,
+               StructureNotifyMask | ResizeRedirectMask, &event);
+}
+
+static void
+x11_toggle_cursor_confinement(void)
+{
+    x11_state.cursor_confined = !x11_state.cursor_confined;
+}
+
+static void
+x11_toggle_cursor_centered(void)
+{
+    x11_state.cursor_centered = !x11_state.cursor_centered;
+}
+
 static void x11_init(X11State* x11_state)
 {
     x11_state->display = XOpenDisplay(NULL);
@@ -67,12 +100,17 @@ static void x11_init(X11State* x11_state)
 
     x11_state->screen = DefaultScreen(x11_state->display);
     
-    x11_state->visual = DefaultVisual(x11_state->display, x11_state->screen);
-    x11_state->depth  = DefaultDepth(x11_state->display, x11_state->screen);
+    XVisualInfo visual_info;
+    XMatchVisualInfo(x11_state->display, x11_state->screen, 32, TrueColor, &visual_info);
     
     XSetWindowAttributes win_attribs = {0};
+    win_attribs.colormap = XCreateColormap(x11_state->display,
+                                           DefaultRootWindow(x11_state->display),
+                                           visual_info.visual, AllocNone);
+    win_attribs.background_pixmap = BlackPixel(x11_state->display, x11_state->screen);
     win_attribs.background_pixel = BlackPixel(x11_state->display, x11_state->screen);
-    win_attribs.bit_gravity = StaticGravity;
+    win_attribs.border_pixel = 0;
+    win_attribs.bit_gravity = NorthWestGravity;
     win_attribs.backing_store = WhenMapped;
     win_attribs.event_mask = (KeyPressMask | KeyReleaseMask | ButtonPressMask |
                               ButtonReleaseMask | PointerMotionMask |
@@ -83,8 +121,9 @@ static void x11_init(X11State* x11_state)
                                       0, 0,
                                       x11_state->window_attributes.width,
                                       x11_state->window_attributes.height,
-                                      0, x11_state->depth, InputOutput,
-                                      x11_state->visual,
+                                      0, visual_info.depth, InputOutput,
+                                      visual_info.visual,
+                                      CWColormap | CWBackPixmap | CWBorderPixel |
                                       CWBackPixel | CWBitGravity | CWBackingStore |
                                       CWEventMask,
                                       &win_attribs);
@@ -92,6 +131,10 @@ static void x11_init(X11State* x11_state)
 
     x11_state->wm_delete_window = XInternAtom(x11_state->display,
                                               "WM_DELETE_WINDOW", False);
+    if (x11_state->wm_delete_window == None) {
+        FC_WARN("Failed to get x11 atom with name WM_DELETE_WINDOW");
+    }
+    
     XSetWMProtocols(x11_state->display, x11_state->window,
                     &x11_state->wm_delete_window, 1);
     
@@ -109,7 +152,8 @@ static void x11_init(X11State* x11_state)
         XSetClassHint(x11_state->display, x11_state->window, class_hint);
         XFree(class_hint);
     }    
-
+    
+    /* x11_fullscreen(x11_state->display, x11_state->window); */
     XMapWindow(x11_state->display, x11_state->window);
 }
 
@@ -450,13 +494,15 @@ static void x11_handle_events(X11State* x11_state, ApplicationState* application
             case MotionNotify: {
                 finch_event.type = FC_EVENT_TYPE_MOUSE_MOVED;
 
-                finch_event.mouse_x = e.xbutton.x;
+                finch_event.mouse_x = e.xmotion.x;
+
                 application_state->input_state.mouse_dx +=
                     (e.xbutton.x - application_state->input_state.mouse_x);
 
                 application_state->input_state.mouse_x = e.xmotion.x;
 
-                finch_event.mouse_y = e.xbutton.y;
+                finch_event.mouse_y = e.xmotion.y;
+
                 application_state->input_state.mouse_dy +=
                     (e.xbutton.y - application_state->input_state.mouse_y);
 
@@ -482,6 +528,7 @@ static void x11_handle_events(X11State* x11_state, ApplicationState* application
                                 x11_state->window_attributes.height);
                 }
             } break;
+            default: {}
         }
 
         // Add event to game's event buffer if it is a finch event
@@ -536,7 +583,31 @@ void platform_deinit(ApplicationState* application_state)
 
 void platform_poll_events(ApplicationState* application_state)
 {
+
+    b32 should_grab_pointer = x11_state.cursor_confined;
+    if (should_grab_pointer) {
+        XGrabPointer(x11_state.display, XDefaultRootWindow(x11_state.display),
+                     True, PointerMotionMask, GrabModeSync, GrabModeSync,
+                     x11_state.window, None, CurrentTime);
+    }
+    
     x11_handle_events(&x11_state, application_state);
+    
+    if (should_grab_pointer) {
+        XUngrabPointer(x11_state.display, CurrentTime);
+    }
+    
+    if (x11_state.cursor_centered) {
+        x11_move_cursor(x11_state.display, x11_state.window,
+                        x11_state.window_attributes.width / 2,
+                        x11_state.window_attributes.height / 2);
+        while (XPending(x11_state.display) > 0) {
+            XEvent e = {0};
+            XNextEvent(x11_state.display, &e);
+        }
+        /* XSync(x11_state.display, True); */
+    }
+    
 }
 
 WindowAttributes* platform_get_window_attributes(void)
@@ -584,15 +655,9 @@ b32 platform_terminal_supports_colors()
     return (atoi(buf) == 256);
 }
 
-b32 platform_stdout_is_terminal()
-{
-    return isatty(STDOUT_FILENO) == 1;
-}
+b32 platform_stdout_is_terminal() { return isatty(STDOUT_FILENO) == 1; }
 
-b32 platform_stderr_is_terminal()
-{
-    return isatty(STDERR_FILENO) == 1;
-}
+b32 platform_stderr_is_terminal() { return isatty(STDERR_FILENO) == 1; }
 
 void platform_set_terminal_color(FcTerminalColor color) {
     if (terminal_supports_colors == -1) {
@@ -618,26 +683,17 @@ void platform_set_terminal_color(FcTerminalColor color) {
     }
 }
 
-void platform_get_framebuffer_size(u32* width, u32* height)
-{
-    x11_get_framebuffer_size(&x11_state, width, height);
-}
+void platform_get_framebuffer_size(u32* width, u32* height) { x11_get_framebuffer_size(&x11_state, width, height); }
 
-void
-platform_show_cursor(void)
-{
-    x11_show_cursor(x11_state.display, x11_state.window);
-}
+void platform_show_cursor(void) { x11_show_cursor(x11_state.display, x11_state.window); }
 
-void
-platform_hide_cursor(void)
-{
-    x11_hide_cursor(x11_state.display, x11_state.window);
-}
+void platform_hide_cursor(void) { x11_hide_cursor(x11_state.display, x11_state.window); }
+
+void platform_move_cursor(u32 x, u32 y) { x11_move_cursor(x11_state.display, x11_state.window, x, y); }
+
+void platform_toggle_fullscreen(void) { x11_toggle_fullscreen(x11_state.display, x11_state.window); }
+
+void platform_toggle_cursor_confinement(void) { x11_toggle_cursor_confinement(); }
 
 
-void
-platform_move_cursor(u32 x, u32 y)
-{
-    x11_move_cursor(x11_state.display, x11_state.window, x, y);
-}
+void platform_toggle_cursor_centered(void) { x11_toggle_cursor_centered(); }
