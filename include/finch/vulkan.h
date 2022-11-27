@@ -81,6 +81,7 @@ typedef struct _VulkanCommandBuffers {
 typedef struct _Vertex {
     v2f32 position;
     v3f32 color;
+    v2f32 tex_coord;
 } Vertex;
 
 typedef struct _UniformBuffers {
@@ -103,7 +104,7 @@ typedef struct _VulkanCore {
 } VulkanCore;
 
 typedef struct _VulkanAttributeDescriptions {
-    VkVertexInputAttributeDescription descs[2];
+    VkVertexInputAttributeDescription descs[3];
 } VulkanAttributeDescriptions;
 
 typedef struct _UniformBufferObject {

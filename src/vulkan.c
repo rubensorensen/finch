@@ -8,27 +8,31 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define VSYNC 1
+#define VSYNC 0
 
 // Implemented in platform layer
 extern VkSurfaceKHR create_surface(VkInstance instance);
 
 static Vertex g_vertices[] = {
     {
-        .position = {.x = -0.5f, .y = -0.5f},
-        .color    = {.r = 1.0f, .g = 0.0f, .b = 0.0f}
+        .position  = {.x = -0.5f, .y = -0.5f},
+        .color     = {.r = 1.0f, .g = 0.0f, .b = 0.0f},
+        .tex_coord = {.x = 1.0f, .y = 0.0f}
     },
     {
-        .position = {.x = 0.5f, .y = -0.5f},
-        .color    = {.r = 0.0f, .g = 1.0f, .b = 0.0f}
+        .position  = {.x = 0.5f, .y = -0.5f},
+        .color     = {.r = 0.0f, .g = 1.0f, .b = 0.0f},
+        .tex_coord = {.x = 0.0f, .y = 0.0f}
     },
     {
-        .position = {.x = 0.5f, .y = 0.5f},
-        .color    = {.r = 0.0f, .g = 0.0f, .b = 1.0f}
+        .position  = {.x = 0.5f, .y = 0.5f},
+        .color     = {.r = 0.0f, .g = 0.0f, .b = 1.0f},
+        .tex_coord = {.x = 0.0f, .y = 1.0f}
     },
     {
-        .position = {.x = -0.5f, .y = 0.5f},
-        .color    = {.r = 1.0f, .g = 1.0f, .b = 1.0f}
+        .position  = {.x = -0.5f, .y = 0.5f},
+        .color     = {.r = 1.0f, .g = 1.0f, .b = 1.0f},
+        .tex_coord = {.x = 1.0f, .y = 1.0f}
     }
 };
 
@@ -866,6 +870,11 @@ get_attrib_descs(void)
     attrib_descs.descs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
     attrib_descs.descs[1].offset = offsetof(Vertex, color);
     
+    attrib_descs.descs[2].binding = 0;
+    attrib_descs.descs[2].location = 2;
+    attrib_descs.descs[2].format = VK_FORMAT_R32G32_SFLOAT;
+    attrib_descs.descs[2].offset = offsetof(Vertex, tex_coord);
+    
     return attrib_descs;
 }
 
@@ -928,7 +937,7 @@ create_graphics_pipeline(VkRenderPass render_pass,
     vertex_input_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vertex_input_info.vertexBindingDescriptionCount   = 1;
     vertex_input_info.pVertexBindingDescriptions      = &binding_desc;
-    vertex_input_info.vertexAttributeDescriptionCount = 2;
+    vertex_input_info.vertexAttributeDescriptionCount = 3;
     vertex_input_info.pVertexAttributeDescriptions    = attrib_descs.descs;
 
     // Prepare input assembly
@@ -976,9 +985,9 @@ create_graphics_pipeline(VkRenderPass render_pass,
                                              VK_COLOR_COMPONENT_G_BIT |
                                              VK_COLOR_COMPONENT_B_BIT |
                                              VK_COLOR_COMPONENT_A_BIT);
-    color_blend_attachment.blendEnable         = VK_FALSE;
-    color_blend_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-    color_blend_attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+    color_blend_attachment.blendEnable         = VK_TRUE;
+    color_blend_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    color_blend_attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
     color_blend_attachment.colorBlendOp        = VK_BLEND_OP_ADD;
     color_blend_attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
     color_blend_attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
@@ -1462,10 +1471,22 @@ create_descriptor_set_layout()
     ubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     ubo_layout_binding.pImmutableSamplers = NULL;
 
+    VkDescriptorSetLayoutBinding sampler_layout_binding = {0};
+    sampler_layout_binding.binding = 1;
+    sampler_layout_binding.descriptorCount = 1;
+    sampler_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    sampler_layout_binding.pImmutableSamplers = NULL;
+    sampler_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    VkDescriptorSetLayoutBinding bindings[] = {
+        ubo_layout_binding,
+        sampler_layout_binding
+    };
+    
     VkDescriptorSetLayoutCreateInfo layout_info = {0};
     layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layout_info.bindingCount = 1;
-    layout_info.pBindings = &ubo_layout_binding;
+    layout_info.bindingCount = ARRAY_COUNT(bindings);
+    layout_info.pBindings = bindings;
 
     VkDescriptorSetLayout layout;
     VkResult result = vkCreateDescriptorSetLayout(g_core.device, &layout_info,
@@ -1498,14 +1519,16 @@ create_uniform_buffers()
 static VkDescriptorPool
 create_descriptor_pool()
 {
-    VkDescriptorPoolSize pool_size = {0};
-    pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    pool_size.descriptorCount = (u32)MAX_FRAMES_IN_FLIGHT;
+    VkDescriptorPoolSize pool_sizes[2] = {0};
+    pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    pool_sizes[0].descriptorCount = (u32)MAX_FRAMES_IN_FLIGHT;
+    pool_sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    pool_sizes[1].descriptorCount = (u32)MAX_FRAMES_IN_FLIGHT;
 
     VkDescriptorPoolCreateInfo pool_info = {0};
     pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    pool_info.poolSizeCount = 1;
-    pool_info.pPoolSizes = &pool_size;
+    pool_info.poolSizeCount = ARRAY_COUNT(pool_sizes);
+    pool_info.pPoolSizes = pool_sizes;
     pool_info.maxSets = (u32)MAX_FRAMES_IN_FLIGHT;
 
     VkDescriptorPool descriptor_pool;
@@ -1543,18 +1566,35 @@ create_descriptor_sets(VkDescriptorSetLayout layout, VkDescriptorPool descriptor
         buffer_info.offset = 0;
         buffer_info.range = sizeof(UniformBufferObject);
 
-        VkWriteDescriptorSet descriptor_write = {0};
-        descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptor_write.dstSet = descriptor_sets.sets[i];
-        descriptor_write.dstBinding = 0;
-        descriptor_write.dstArrayElement = 0;
-        descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        descriptor_write.descriptorCount = 1;
-        descriptor_write.pBufferInfo = &buffer_info;
-        descriptor_write.pImageInfo = NULL;
-        descriptor_write.pTexelBufferView = NULL;
+        VkDescriptorImageInfo image_info = {0};
+        image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        image_info.imageView = g_texture_image_view;
+        image_info.sampler = g_texture_sampler;
 
-        vkUpdateDescriptorSets(g_core.device, 1, &descriptor_write, 0, NULL);
+        VkWriteDescriptorSet descriptor_writes[2] = {0};
+        
+        descriptor_writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptor_writes[0].dstSet = descriptor_sets.sets[i];
+        descriptor_writes[0].dstBinding = 0;
+        descriptor_writes[0].dstArrayElement = 0;
+        descriptor_writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptor_writes[0].descriptorCount = 1;
+        descriptor_writes[0].pBufferInfo = &buffer_info;
+        descriptor_writes[0].pImageInfo = NULL;
+        descriptor_writes[0].pTexelBufferView = NULL;
+        
+        descriptor_writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptor_writes[1].dstSet = descriptor_sets.sets[i];
+        descriptor_writes[1].dstBinding = 1;
+        descriptor_writes[1].dstArrayElement = 0;
+        descriptor_writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        descriptor_writes[1].descriptorCount = 1;
+        descriptor_writes[1].pBufferInfo = NULL;
+        descriptor_writes[1].pImageInfo = &image_info;
+        descriptor_writes[1].pTexelBufferView = NULL;
+
+        vkUpdateDescriptorSets(g_core.device, ARRAY_COUNT(descriptor_writes),
+                               descriptor_writes, 0, NULL);
     }
     
     return descriptor_sets;
@@ -1635,6 +1675,7 @@ transition_image_layout(VkImage image, VkImageLayout old_layout,
         dest_stage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
     } else {
         FC_ERROR("Unsupported layout transition");
+        return;
     }
 
     vkCmdPipelineBarrier(command_buffer, src_stage, dest_stage,

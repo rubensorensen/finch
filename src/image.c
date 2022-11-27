@@ -83,7 +83,7 @@ parse_tga_image(u8* data)
                     u32 ix = right_to_left ? image.width - x: x;
                     u32 iy = bottom_to_top ? image.height - y - 1 : y;
                     u32 i = ix + iy * image.width;
-                    image.pixels[i] = ((r << 24) | (g << 16) | (b << 8) | a);
+                    image.pixels[i] = ((a << 24) | (b << 16) | (g << 8) | r);
                 }
             }
         } break;
@@ -99,7 +99,7 @@ parse_tga_image(u8* data)
                     u32 ix = right_to_left ? image.width - x: x;
                     u32 iy = bottom_to_top ? image.height - y - 1 : y;
                     u32 i = ix + iy * image.width;
-                    image.pixels[i] = ((r << 24) | (g << 16) | (b << 8) | a);
+                    image.pixels[i] = ((a << 24) | (b << 16) | (g << 8) | r);
                 }
             }
         } break;
@@ -120,7 +120,7 @@ parse_tga_image(u8* data)
                         u32 ix = right_to_left ? image.width - x : x;
                         u32 iy = bottom_to_top ? image.height - y - 1: y;
                         u32 index = ix + iy * image.width;
-                        image.pixels[index] = ((r << 24) | (g << 16) | (b << 8) | a);
+                        image.pixels[index] = ((a << 24) | (b << 16) | (g << 8) | r);
                         i += 1;
                     }
                     data += stride;
