@@ -99,7 +99,7 @@ typedef struct _VulkanCore {
     VkPhysicalDevice phy_device;
     VkDevice device;
     
-    VulkanSyncPrimitives          sync_objs;
+    VulkanSyncPrimitives sync_objs;
 } VulkanCore;
 
 typedef struct _VulkanAttributeDescriptions {
