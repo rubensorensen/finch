@@ -763,7 +763,7 @@ setup_logical_device(VulkanQueueFamilyIndices indices, VulkanQueues* queues)
 }
 
 static VkShaderModule
-create_shader_module(char* shader_code, u32 shader_code_size)
+create_shader_module(u8* shader_code, u32 shader_code_size)
 {
     VkShaderModuleCreateInfo create_info = {0};
     create_info.sType                    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -861,18 +861,17 @@ create_graphics_pipeline(VkRenderPass render_pass,
     VulkanPipeline pipeline;
     
     // Prepare shaders
-    u32  max_shader_code_size = 1024 * 1024;
-    char vertex_shader_code[max_shader_code_size];
-    u32  vertex_shader_code_size = read_entire_file(vertex_shader_code,
-                                                    max_shader_code_size,
-                                                    "./assets/shaders/vert.spv");
+    u32 vertex_shader_code_size;
+    u8* vertex_shader_code;
+    slurp_file("./assets/shaders/vert.spv", &vertex_shader_code,
+               &vertex_shader_code_size);
+    
+    u32 fragment_shader_code_size;
+    u8* fragment_shader_code;
+    slurp_file("./assets/shaders/frag.spv", &fragment_shader_code,
+               &fragment_shader_code_size);
 
-    char fragment_shader_code[max_shader_code_size];
-    u32  fragment_shader_code_size = read_entire_file(fragment_shader_code,
-                                                      max_shader_code_size,
-                                                      "./assets/shaders/frag.spv");
-
-    VkShaderModule vertex_shader_module   = 
+    VkShaderModule vertex_shader_module = 
         create_shader_module(vertex_shader_code, vertex_shader_code_size);
     VkShaderModule fragment_shader_module = 
         create_shader_module(fragment_shader_code, fragment_shader_code_size);
@@ -925,6 +924,8 @@ create_graphics_pipeline(VkRenderPass render_pass,
 
     // Using dynamic viewport so no need to set anything
     VkPipelineViewportStateCreateInfo viewport_state = {0};
+    viewport_state.viewportCount = 1;
+    viewport_state.scissorCount = 1;
     viewport_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
 
     // Rasterizer

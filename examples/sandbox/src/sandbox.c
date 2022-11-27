@@ -14,7 +14,7 @@ typedef struct _ApplicationData {
     f32 vertical_offset;
     f32 velocity;
 
-    b32 cursor_hidden;
+    int cursor_style;
 } ApplicationData;
 
 static ApplicationData* app_data;
@@ -37,11 +37,12 @@ static void handle_events(ApplicationState* application_state)
                 }
             } break;
             case FC_EVENT_TYPE_KEY_PRESSED: {
-                if (e.key == FC_KEY_TAB) {
-                    app_data->cursor_hidden ?
-                        platform_show_cursor() :
-                        platform_hide_cursor();
-                    app_data->cursor_hidden = !app_data->cursor_hidden;
+                if (e.key == FC_KEY_ESC) {
+                    application_state->running = false;
+                }
+                else if (e.key == FC_KEY_TAB) {
+                    app_data->cursor_style = (app_data->cursor_style + 1) % FC_CURSOR_STYLE_COUNT;
+                    platform_set_cursor_style((FcCursorStyle)app_data->cursor_style);
                 } else if (e.key == FC_KEY_SPACE) {
                     platform_move_cursor(application_state->width_px / 2,
                                          application_state->height_px / 2);

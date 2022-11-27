@@ -7,6 +7,7 @@
 #include <X11/Xutil.h>
 #include <X11/Xos.h>
 #include <X11/Xatom.h>
+#include <X11/cursorfont.h>
 
 typedef struct _X11State {
     Display *display;

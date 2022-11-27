@@ -30,26 +30,66 @@ void linux_draw_frame(f64 dt)
 
 static s32 terminal_supports_colors = -1;
 
-static void x11_hide_cursor(Display* display, Window window)
-{    
-    XColor color  = { 0 };
-    const char data[] = { 0 };
-
-    Pixmap pixmap = XCreateBitmapFromData(display, window, data, 1, 1);
-    Cursor cursor = XCreatePixmapCursor(display, pixmap, pixmap, &color, &color, 0, 0);
-    
-    XFreePixmap(display, pixmap);
-    
-    XSetWindowAttributes attribs = { .cursor = cursor };
-
-    XChangeWindowAttributes(display, window, CWCursor, &attribs);
-    XFreeCursor(display, cursor);
-}
-
-static void x11_show_cursor(Display* display, Window window)
+static void
+x11_set_cursor_style(Display* display, Window window, FcCursorStyle style)
 {
-    XSetWindowAttributes attribs = { .cursor = None };
-    XChangeWindowAttributes(display, window, CWCursor, &attribs);
+    Cursor cursor;
+    
+    switch (style) {
+        case FC_CURSOR_STYLE_HIDDEN: {
+            XColor color = {0};
+            const char data[] = {0};
+            Pixmap pixmap = XCreateBitmapFromData(display, window, data, 1, 1);
+            cursor = XCreatePixmapCursor(display, pixmap, pixmap, &color, &color, 0, 0);
+            XFreePixmap(display, pixmap);
+        } break;
+        case FC_CURSOR_STYLE_DEFAULT: {
+            cursor = XCreateFontCursor(display, XC_arrow);
+        } break;
+        case FC_CURSOR_STYLE_POINTER: {
+            cursor = XCreateFontCursor(display, XC_hand2);
+        } break;
+        case FC_CURSOR_STYLE_WAIT: {
+            cursor = XCreateFontCursor(display, XC_watch);
+        } break;
+        case FC_CURSOR_STYLE_TEXT: {
+            cursor = XCreateFontCursor(display, XC_xterm);
+        } break;
+        case FC_CURSOR_STYLE_CROSSHAIR: {
+            cursor = XCreateFontCursor(display, XC_crosshair);
+        } break;
+        case FC_CURSOR_STYLE_MOVE: {
+            cursor = XCreateFontCursor(display, XC_fleur);
+        } break;
+        case FC_CURSOR_STYLE_NOT_ALLOWED: {
+            cursor = XCreateFontCursor(display, XC_pirate);
+        } break;
+        case FC_CURSOR_STYLE_UP_ARROW: {
+            cursor = XCreateFontCursor(display, XC_sb_up_arrow);
+        } break;
+        case FC_CURSOR_STYLE_DOWN_ARROW: {
+            cursor = XCreateFontCursor(display, XC_sb_down_arrow);
+        } break;
+        case FC_CURSOR_STYLE_LEFT_ARROW: {
+            cursor = XCreateFontCursor(display, XC_sb_left_arrow);
+        } break;
+        case FC_CURSOR_STYLE_RIGHT_ARROW: {
+            cursor = XCreateFontCursor(display, XC_sb_right_arrow);
+        } break;
+        case FC_CURSOR_STYLE_UP_DOWN_ARROW: {
+            cursor = XCreateFontCursor(display, XC_sb_v_double_arrow);
+        } break;
+        case FC_CURSOR_STYLE_LEFT_RIGHT_ARROW: {
+            cursor = XCreateFontCursor(display, XC_sb_h_double_arrow);
+        } break;
+        default: {
+            FC_WARN("Unknown finch cursor style '%d', falling back to default",
+                    style);
+            cursor = XCreateFontCursor(display, XC_arrow);
+        }
+    }
+    
+    XDefineCursor(display, window, cursor);
 }
 
 static void x11_move_cursor(Display* display, Window window, u32 x, u32 y)
@@ -155,6 +195,9 @@ static void x11_init(X11State* x11_state)
     
     /* x11_fullscreen(x11_state->display, x11_state->window); */
     XMapWindow(x11_state->display, x11_state->window);
+
+    x11_set_cursor_style(x11_state->display, x11_state->window,
+                         FC_CURSOR_STYLE_DEFAULT);
 }
 
 static void x11_deinit(X11State* x11_state)
@@ -685,9 +728,10 @@ void platform_set_terminal_color(FcTerminalColor color) {
 
 void platform_get_framebuffer_size(u32* width, u32* height) { x11_get_framebuffer_size(&x11_state, width, height); }
 
-void platform_show_cursor(void) { x11_show_cursor(x11_state.display, x11_state.window); }
-
-void platform_hide_cursor(void) { x11_hide_cursor(x11_state.display, x11_state.window); }
+void platform_set_cursor_style(FcCursorStyle cursor_style)
+{
+    x11_set_cursor_style(x11_state.display, x11_state.window, cursor_style);
+}
 
 void platform_move_cursor(u32 x, u32 y) { x11_move_cursor(x11_state.display, x11_state.window, x, y); }
 
