@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+static b32 left_mouse_button_down;
+
 typedef struct _ApplicationData {
     f32 time_elapsed_seconds;
     f32 horizontal_offset;
@@ -19,25 +21,49 @@ typedef struct _ApplicationData {
 
 static ApplicationData* app_data;
 
-static void handle_events(ApplicationState* application_state)
+f32 
+get_horizontal_offset(void)
+{
+    return app_data->horizontal_offset;
+}
+
+f32 
+get_vertical_offset(void)
+{
+    return app_data->vertical_offset;
+}
+
+static void handle_events(ApplicationState* application_state, f64 dt)
 {
     while (application_state->unhandled_events) {
         FcEvent e = application_state->events[--application_state->unhandled_events];
         switch (e.type) {
+            case FC_EVENT_TYPE_MOUSE_MOVED: {
+                if (left_mouse_button_down) {
+                    app_data->horizontal_offset += (f64)e.mouse_dx * dt;
+                    app_data->vertical_offset += (f64)e.mouse_dy * dt;
+                }
+            } break;
             case FC_EVENT_TYPE_WHEEL_SCROLLED: {
                 if (e.scroll_wheel_vertical_direction != 0) {
-                    app_data->vertical_offset -= app_data->velocity * e.scroll_wheel_vertical_direction;
-                    FC_INFO("Mouse wheel scrolled %s",
-                           e.scroll_wheel_vertical_direction > 0 ? "up" : "down");
+
                 }
                 if (e.scroll_wheel_horizontal_direction != 0) {
-                    app_data->horizontal_offset -= app_data->velocity * -e.scroll_wheel_horizontal_direction;
-                    FC_INFO("Mouse wheel scrolled %s",
-                           e.scroll_wheel_horizontal_direction > 0 ? "right" : "left");
+
+                }
+            } break;
+            case FC_EVENT_TYPE_BUTTON_PRESSED: {
+                if (e.button == FC_BUTTON_LEFT) {
+                    left_mouse_button_down = FC_TRUE;
+                }
+            } break;
+            case FC_EVENT_TYPE_BUTTON_RELEASED: {
+                if (e.button == FC_BUTTON_LEFT) {
+                    left_mouse_button_down = FC_FALSE;
                 }
             } break;
             case FC_EVENT_TYPE_KEY_PRESSED: {
-                if (e.key == FC_KEY_ESC) {
+                if (e.key == FC_KEY_ESC || e.key == FC_KEY_Q) {
                     application_state->running = false;
                 }
                 else if (e.key == FC_KEY_TAB) {
@@ -77,28 +103,7 @@ void fc_application_init(ApplicationState* application_state)
 
 void fc_application_update(ApplicationState* application_state, f64 dt)
 {
-    handle_events(application_state);
-
-    InputState* input_state = &application_state->input_state;
-
-    app_data->velocity = input_state->key_is_down[FC_KEY_SPACE] ? 500.0f : 250.0f;
-    if (input_state->key_is_down[FC_KEY_W]) {
-        app_data->vertical_offset += app_data->velocity * dt;
-    }
-    if (input_state->key_is_down[FC_KEY_S]) {
-        app_data->vertical_offset -= app_data->velocity * dt;
-    }
-    if (input_state->key_is_down[FC_KEY_A]) {
-        app_data->horizontal_offset += app_data->velocity * dt;
-    }
-    if (input_state->key_is_down[FC_KEY_D]) {
-        app_data->horizontal_offset -= app_data->velocity * dt;
-    }
-    if (input_state->button_is_down[FC_BUTTON_LEFT]) {
-        /* FC_INFO("dx: %d, dy: %d", input_state->mouse_dx, input_state->mouse_dy); */
-        app_data->horizontal_offset += input_state->mouse_dx;
-        app_data->vertical_offset   += input_state->mouse_dy;
-    }
+    handle_events(application_state, dt);
 
     app_data->time_elapsed_seconds += dt;
 }

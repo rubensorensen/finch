@@ -18,7 +18,7 @@ typedef struct _X11State {
     Atom wm_delete_window;
 
     WindowAttributes window_attributes;
-
+    
     b32 cursor_centered;
     b32 cursor_confined;
 } X11State;

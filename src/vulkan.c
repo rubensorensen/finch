@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define VSYNC 0
+#define VSYNC 1
 
 // Implemented in platform layer
 extern VkSurfaceKHR create_surface(VkInstance instance);
@@ -1202,18 +1202,30 @@ recreate_swap_chain()
 
 }
 
+// TEMPORARY: ONLY FOR TESTING DELTA MOUSE POSITION
+
+extern f32 get_horizontal_offset(void);
+extern f32 get_vertical_offset(void);
+
+///////////////////////////////////////////////////
+
 static void
 update_uniform_buffer(f64 dt, u32 current_image, VkExtent2D extent, UniformBuffers uniform_buffers)
 {
     static f32 time = 0;
     time += (f32)dt;
 
+    f32 hor_off = get_horizontal_offset();
+    f32 ver_off = get_vertical_offset();
+
     UniformBufferObject ubo = {0};
     ubo.model = m4f32_identity();
     /* ubo.model = m4f32_scale(ubo.model, (v3f32){{2.0f, 2.0f, 2.0f}}); */
     /* ubo.model = m4f32_translate(ubo.model, (v3f32){{-1.0, 0.0f, 0.0f}}); */
-    ubo.model = m4f32_rotate(ubo.model, time * radians(90.0f), Z_AXIS);
-    
+    //ubo.model = m4f32_rotate(ubo.model, time * radians(90.0f), Z_AXIS);
+    ubo.model = m4f32_rotate(ubo.model, hor_off * radians(90.0f) * 0.25f, Z_AXIS);
+    ubo.model = m4f32_rotate(ubo.model, ver_off * radians(90.0f) * 0.25f, X_AXIS);
+
     ubo.view = m4f32_look_at((v3f32){{0.0f, -2.0f, 1.0f}},
                              (v3f32){{0.0f, 0.0f, 0.0f}},
                              Z_AXIS);
@@ -1883,7 +1895,7 @@ void vulkan_deinit()
 #ifdef FINCH_LOGGING
     destroy_debug_utils_messenger_EXT(vulkan_debug_messenger, NULL);
 #endif // FINCH_LOGGING
-    
+
     vkDestroyInstance(g_core.instance, NULL);
 
     FC_INFO("Vulkan deinitialized");

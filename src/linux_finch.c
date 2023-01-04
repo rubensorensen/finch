@@ -15,6 +15,8 @@
 
 static X11State x11_state;
 
+static u32 prev_x, prev_y;
+
 // To be used by modules requiring access to x11 state
 X11State* x11_get_ptr_to_state(void)
 {
@@ -34,7 +36,6 @@ static void
 x11_set_cursor_style(Display* display, Window window, FcCursorStyle style)
 {
     Cursor cursor;
-    
     switch (style) {
         case FC_CURSOR_STYLE_HIDDEN: {
             XColor color = {0};
@@ -90,14 +91,17 @@ x11_set_cursor_style(Display* display, Window window, FcCursorStyle style)
     }
     
     XDefineCursor(display, window, cursor);
+    XFreeCursor(display, cursor);
 }
 
-static void x11_move_cursor(Display* display, Window window, u32 x, u32 y)
+static void
+x11_move_cursor(Display* display, Window window, u32 x, u32 y)
 {
     XWarpPointer(display, None, window, 0, 0, 0, 0, x, y);
 }
 
-static void x11_toggle_fullscreen(Display* display, Window window)
+static void
+x11_toggle_fullscreen(Display* display, Window window)
 {
     Atom wm_state = XInternAtom (display, "_NET_WM_STATE", true );
     Atom wm_fullscreen = XInternAtom (display, "_NET_WM_STATE_FULLSCREEN", true );
@@ -130,7 +134,8 @@ x11_toggle_cursor_centered(void)
     x11_state.cursor_centered = !x11_state.cursor_centered;
 }
 
-static void x11_init(X11State* x11_state)
+static void
+x11_init(X11State* x11_state)
 {
     x11_state->display = XOpenDisplay(NULL);
     if (x11_state->display == NULL) {
@@ -200,7 +205,8 @@ static void x11_init(X11State* x11_state)
                          FC_CURSOR_STYLE_DEFAULT);
 }
 
-static void x11_deinit(X11State* x11_state)
+static void
+x11_deinit(X11State* x11_state)
 {
     XUnmapWindow(x11_state->display, x11_state->window);
     XFreeGC(x11_state->display, x11_state->gc);
@@ -213,7 +219,8 @@ static void x11_deinit(X11State* x11_state)
     /* XCloseDisplay(x11_state->display); */
 }
 
-void x11_get_framebuffer_size(X11State* x11_state, u32* width, u32* height)
+void
+x11_get_framebuffer_size(X11State* x11_state, u32* width, u32* height)
 {
 
     XWindowAttributes window_attributes;
@@ -239,22 +246,25 @@ window_resize(ApplicationState* application_state, u32 new_width, u32 new_height
     if (vulkan_initialized()) recreate_swap_chain();
 }
 
-static void x11_resize_window(X11State* x11_state, u32 new_width, u32 new_height)
+static void
+x11_resize_window(X11State* x11_state, u32 new_width, u32 new_height)
 {
     x11_state->window_attributes.width  = new_width;
     x11_state->window_attributes.height = new_height;
 }
 
-static void x11_handle_events(X11State* x11_state, ApplicationState* application_state)
+static void
+x11_handle_events(X11State* x11_state, ApplicationState* application_state)
 {
     application_state->unhandled_events = 0;
-    application_state->input_state.mouse_dx = 0;
-    application_state->input_state.mouse_dy = 0;
     
+    b32 mouse_moved = FC_FALSE;
+    u32 mouse_x, mouse_y;
     while (XPending(x11_state->display) > 0) {
         FcEvent finch_event = {0};
 
         XEvent e = {0};
+        XAllowEvents(x11_state->display, AsyncPointer, CurrentTime);
         XNextEvent(x11_state->display, &e);
 
         switch (e.type) {
@@ -370,7 +380,6 @@ static void x11_handle_events(X11State* x11_state, ApplicationState* application
                 }
 
                 finch_event.key = finch_key;
-                application_state->input_state.key_is_down[finch_key] = true;
 
             } break;
             case KeyRelease: {
@@ -443,7 +452,6 @@ static void x11_handle_events(X11State* x11_state, ApplicationState* application
                 }
 
                 finch_event.key = finch_key;
-                application_state->input_state.key_is_down[finch_key] = false;
 
             } break;
             case ButtonPress: {
@@ -498,7 +506,6 @@ static void x11_handle_events(X11State* x11_state, ApplicationState* application
                 }
 
                 finch_event.button = finch_button;
-                application_state->input_state.button_is_down[finch_button] = true;
 
             } break;
             case ButtonRelease: {
@@ -531,25 +538,16 @@ static void x11_handle_events(X11State* x11_state, ApplicationState* application
                 }
 
                 finch_event.button = finch_button;
-                application_state->input_state.button_is_down[finch_button] = false;
 
             } break;
             case MotionNotify: {
-                finch_event.type = FC_EVENT_TYPE_MOUSE_MOVED;
+                mouse_moved = FC_TRUE;
+                mouse_x = e.xmotion.x;
+                mouse_y = e.xmotion.y;
 
-                finch_event.mouse_x = e.xmotion.x;
-
-                application_state->input_state.mouse_dx +=
-                    (e.xbutton.x - application_state->input_state.mouse_x);
-
-                application_state->input_state.mouse_x = e.xmotion.x;
-
-                finch_event.mouse_y = e.xmotion.y;
-
-                application_state->input_state.mouse_dy +=
-                    (e.xbutton.y - application_state->input_state.mouse_y);
-
-                application_state->input_state.mouse_y = e.xmotion.y;
+//                finch_event.type = FC_EVENT_TYPE_MOUSE_MOVED;
+//                finch_event.mouse_x = e.xmotion.x;
+//                finch_event.mouse_y = e.xmotion.y;
 
             } break;
             case ClientMessage: {
@@ -579,6 +577,19 @@ static void x11_handle_events(X11State* x11_state, ApplicationState* application
             application_state->unhandled_events < MAX_EVENTS) {
             application_state->events[application_state->unhandled_events++] = finch_event;
         }
+    }
+
+    if (mouse_moved && (application_state->unhandled_events < MAX_EVENTS)) {
+        FcEvent mouse_moved_event = {0};
+        mouse_moved_event.type = FC_EVENT_TYPE_MOUSE_MOVED;
+        mouse_moved_event.mouse_x = mouse_x;
+        mouse_moved_event.mouse_y = mouse_y;
+        mouse_moved_event.mouse_dx = mouse_x - prev_x;
+        mouse_moved_event.mouse_dy = mouse_y - prev_y;
+        application_state->events[application_state->unhandled_events++] = mouse_moved_event;
+
+        prev_x = mouse_x;
+        prev_y = mouse_y;
     }
 }
 
@@ -626,11 +637,23 @@ void platform_deinit(ApplicationState* application_state)
 
 void platform_poll_events(ApplicationState* application_state)
 {
+    if (x11_state.cursor_centered) {
+        u32 new_x = x11_state.window_attributes.width / 2;
+        u32 new_y = x11_state.window_attributes.height / 2;
+        prev_x = new_x;
+        prev_y = new_y;
+        XGrabPointer(x11_state.display, XDefaultRootWindow(x11_state.display), 
+                     False, 0, GrabModeAsync, GrabModeAsync, 
+                     None, None, CurrentTime);
+        x11_move_cursor(x11_state.display, x11_state.window,
+                        new_x, new_y);
+        XUngrabPointer(x11_state.display, CurrentTime);
+    }
 
     b32 should_grab_pointer = x11_state.cursor_confined;
     if (should_grab_pointer) {
         XGrabPointer(x11_state.display, XDefaultRootWindow(x11_state.display),
-                     True, PointerMotionMask, GrabModeSync, GrabModeSync,
+                     True, PointerMotionMask, GrabModeAsync, GrabModeAsync,
                      x11_state.window, None, CurrentTime);
     }
     
@@ -638,17 +661,6 @@ void platform_poll_events(ApplicationState* application_state)
     
     if (should_grab_pointer) {
         XUngrabPointer(x11_state.display, CurrentTime);
-    }
-    
-    if (x11_state.cursor_centered) {
-        x11_move_cursor(x11_state.display, x11_state.window,
-                        x11_state.window_attributes.width / 2,
-                        x11_state.window_attributes.height / 2);
-        while (XPending(x11_state.display) > 0) {
-            XEvent e = {0};
-            XNextEvent(x11_state.display, &e);
-        }
-        /* XSync(x11_state.display, True); */
     }
     
 }
@@ -738,6 +750,5 @@ void platform_move_cursor(u32 x, u32 y) { x11_move_cursor(x11_state.display, x11
 void platform_toggle_fullscreen(void) { x11_toggle_fullscreen(x11_state.display, x11_state.window); }
 
 void platform_toggle_cursor_confinement(void) { x11_toggle_cursor_confinement(); }
-
 
 void platform_toggle_cursor_centered(void) { x11_toggle_cursor_centered(); }

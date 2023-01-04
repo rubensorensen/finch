@@ -7,7 +7,8 @@ typedef enum _FcEventType {
     FC_EVENT_TYPE_NONE = 0,
     FC_EVENT_TYPE_BUTTON_PRESSED, FC_EVENT_TYPE_BUTTON_RELEASED,
     FC_EVENT_TYPE_KEY_PRESSED, FC_EVENT_TYPE_KEY_RELEASED,
-    FC_EVENT_TYPE_WHEEL_SCROLLED, FC_EVENT_TYPE_MOUSE_MOVED,
+    FC_EVENT_TYPE_WHEEL_SCROLLED,
+    FC_EVENT_TYPE_MOUSE_MOVED,
 
     FC_EVENT_TYPE_COUNT
 } FcEventType;
@@ -104,6 +105,7 @@ typedef struct _FcEvent {
     FcButton button;
     FcKey key;
     u32 mouse_x, mouse_y;
+    s32 mouse_dx, mouse_dy;
     s8 scroll_wheel_vertical_direction;
     s8 scroll_wheel_horizontal_direction;
 } FcEvent;

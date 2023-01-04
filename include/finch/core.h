@@ -2,6 +2,7 @@
 #define _FINCH_CORE_H
 
 #include <stdint.h>
+
 #include <stdbool.h>
 
 typedef uint8_t  u8;
@@ -18,6 +19,9 @@ typedef float  f32;
 typedef double f64;
 
 typedef bool b32;
+
+#define FC_TRUE 1
+#define FC_FALSE 0
 
 typedef struct _WindowAttributes {
     char* title;
